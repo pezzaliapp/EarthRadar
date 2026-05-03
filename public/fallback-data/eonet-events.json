@@ -1,0 +1,129 @@
+{
+  "title": "EarthRadar fallback — EONET (offline sample)",
+  "description": "Eventi di esempio offline. Sostituiti dalla risposta live di EONET appena la rete è disponibile.",
+  "link": "https://eonet.gsfc.nasa.gov/api/v3/events",
+  "events": [
+    {
+      "id": "EONET_FALLBACK_HURR_1",
+      "title": "Hurricane Sample (fallback)",
+      "description": "Evento di esempio. La rete è offline o EONET non risponde.",
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_FALLBACK_HURR_1",
+      "closed": null,
+      "categories": [{ "id": "severeStorms", "title": "Severe Storms" }],
+      "sources": [
+        { "id": "GDACS", "url": "https://www.gdacs.org/" },
+        { "id": "JTWC", "url": "https://www.metoc.navy.mil/jtwc/" }
+      ],
+      "geometry": [
+        {
+          "magnitudeValue": 50,
+          "magnitudeUnit": "kts",
+          "date": "2026-04-29T00:00:00Z",
+          "type": "Point",
+          "coordinates": [-65.0, 18.5]
+        },
+        {
+          "magnitudeValue": 65,
+          "magnitudeUnit": "kts",
+          "date": "2026-04-30T06:00:00Z",
+          "type": "Point",
+          "coordinates": [-66.5, 19.6]
+        },
+        {
+          "magnitudeValue": 80,
+          "magnitudeUnit": "kts",
+          "date": "2026-05-01T12:00:00Z",
+          "type": "Point",
+          "coordinates": [-68.0, 21.0]
+        },
+        {
+          "magnitudeValue": 95,
+          "magnitudeUnit": "kts",
+          "date": "2026-05-02T18:00:00Z",
+          "type": "Point",
+          "coordinates": [-70.0, 23.0]
+        }
+      ]
+    },
+    {
+      "id": "EONET_FALLBACK_VOLCANO_1",
+      "title": "Stromboli volcano (fallback)",
+      "description": "Evento di esempio offline.",
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_FALLBACK_VOLCANO_1",
+      "closed": null,
+      "categories": [{ "id": "volcanoes", "title": "Volcanoes" }],
+      "sources": [{ "id": "SIVolcano", "url": "https://volcano.si.edu/" }],
+      "geometry": [
+        {
+          "magnitudeValue": null,
+          "magnitudeUnit": null,
+          "date": "2026-05-01T08:00:00Z",
+          "type": "Point",
+          "coordinates": [15.213, 38.789]
+        }
+      ]
+    },
+    {
+      "id": "EONET_FALLBACK_FIRE_1",
+      "title": "Wildfire — California (fallback)",
+      "description": "Evento di esempio offline.",
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_FALLBACK_FIRE_1",
+      "closed": null,
+      "categories": [{ "id": "wildfires", "title": "Wildfires" }],
+      "sources": [{ "id": "InciWeb", "url": "https://inciweb.nwcg.gov/" }],
+      "geometry": [
+        {
+          "magnitudeValue": null,
+          "magnitudeUnit": null,
+          "date": "2026-05-02T15:00:00Z",
+          "type": "Point",
+          "coordinates": [-120.5, 38.7]
+        }
+      ]
+    },
+    {
+      "id": "EONET_FALLBACK_FLOOD_1",
+      "title": "Flood — Bangladesh (fallback)",
+      "description": "Polygon di esempio offline.",
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_FALLBACK_FLOOD_1",
+      "closed": null,
+      "categories": [{ "id": "floods", "title": "Floods" }],
+      "sources": [{ "id": "GDACS", "url": "https://www.gdacs.org/" }],
+      "geometry": [
+        {
+          "magnitudeValue": null,
+          "magnitudeUnit": null,
+          "date": "2026-05-01T00:00:00Z",
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [88.5, 23.5],
+              [90.5, 23.5],
+              [90.5, 25.0],
+              [88.5, 25.0],
+              [88.5, 23.5]
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "EONET_FALLBACK_ICEBERG_1",
+      "title": "Iceberg A-86 (fallback)",
+      "description": "Evento di esempio offline.",
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_FALLBACK_ICEBERG_1",
+      "closed": null,
+      "categories": [{ "id": "seaLakeIce", "title": "Sea and Lake Ice" }],
+      "sources": [{ "id": "NATICE", "url": "https://usicecenter.gov/" }],
+      "geometry": [
+        {
+          "magnitudeValue": 1200,
+          "magnitudeUnit": "NM²",
+          "date": "2026-04-25T00:00:00Z",
+          "type": "Point",
+          "coordinates": [-50.0, -65.0]
+        }
+      ]
+    }
+  ]
+}

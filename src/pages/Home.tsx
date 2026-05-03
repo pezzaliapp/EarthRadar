@@ -25,6 +25,9 @@ const WeatherLayer = lazy(() => import('@/components/overlays/WeatherLayer'));
 const WeatherDetailPanel = lazy(() => import('@/components/panels/WeatherDetailPanel'));
 const RainRadarLayer = lazy(() => import('@/components/overlays/RainRadarLayer'));
 const RainRadarControls = lazy(() => import('@/components/panels/RainRadarControls'));
+// EONET: chunk separato (parser + categorie + dettaglio), caricato solo al toggle.
+const EonetLayer = lazy(() => import('@/components/overlays/EonetLayer'));
+const EonetDetailPanel = lazy(() => import('@/components/panels/EonetDetailPanel'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -52,6 +55,8 @@ export default function Home() {
   const weatherEnabled = useLayersStore((s) => s.overlays.weather?.enabled ?? false);
   const selectedWeather = useLayersStore((s) => s.selectedWeatherCell);
   const radarEnabled = useLayersStore((s) => s.overlays.rainviewer?.enabled ?? false);
+  const eonetEnabled = useLayersStore((s) => s.overlays.eonet?.enabled ?? false);
+  const eonetSelectedId = useLayersStore((s) => s.eonetSelectedEventId);
 
   const aircraft = useAircraft(aircraftEnabled);
 
@@ -109,6 +114,11 @@ export default function Home() {
               {radarEnabled && (
                 <Suspense fallback={null}>
                   <RainRadarLayer />
+                </Suspense>
+              )}
+              {eonetEnabled && (
+                <Suspense fallback={null}>
+                  <EonetLayer />
                 </Suspense>
               )}
             </Map2D>
@@ -178,6 +188,11 @@ export default function Home() {
           {selectedWeather && weatherEnabled && (
             <Suspense fallback={null}>
               <WeatherDetailPanel />
+            </Suspense>
+          )}
+          {eonetSelectedId && eonetEnabled && (
+            <Suspense fallback={null}>
+              <EonetDetailPanel />
             </Suspense>
           )}
           <LayerPanel />
