@@ -52,7 +52,9 @@
     "viirs": "VIIRS",
     "blackMarble": "Black Marble",
     "geoColor": "GOES live",
-    "osm": "OSM"
+    "osm": "OSM",
+    "gibsAttribution": "Overlay GIBS attivi",
+    "gibsOverlaysWarning": "{{count}} overlay GIBS attivi: più tile da scaricare ad ogni pan."
   },
   "quakes": {
     "title": "Terremoti USGS",

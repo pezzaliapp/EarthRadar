@@ -52,7 +52,9 @@
     "viirs": "VIIRS",
     "blackMarble": "Black Marble",
     "geoColor": "GOES live",
-    "osm": "OSM"
+    "osm": "OSM",
+    "gibsAttribution": "Active GIBS overlays",
+    "gibsOverlaysWarning": "{{count}} GIBS overlays active: more tiles fetched on every pan."
   },
   "quakes": {
     "title": "USGS earthquakes",

@@ -3,6 +3,8 @@ import { MapContainer, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import SatelliteTileLayer from './SatelliteTileLayer';
+import GibsOverlayHost from './GibsOverlayHost';
+import OverlaysAttributionPanel from './OverlaysAttributionPanel';
 import TerminatorOverlay from '@/components/overlays/TerminatorOverlay';
 import { useLayersStore } from '@/store/layersStore';
 
@@ -64,12 +66,15 @@ export default function Map2D({
         zoomControl={false}
         className="absolute inset-0"
       >
+        {/* Z-order: base < gibs overlay < terminator < markers/data */}
         <SatelliteTileLayer />
+        <GibsOverlayHost />
         <TerminatorOverlay />
         <ZoomControl position="bottomright" />
         <MapRefBridge mapRef={mapRef} />
         {children}
       </MapContainer>
+      <OverlaysAttributionPanel />
     </div>
   );
 }

@@ -1,6 +1,11 @@
 import { useTranslation } from '@/i18n';
 import { useLayersStore, type LayerId } from '@/store/layersStore';
-import { GIBS_BASE_LAYERS, GIBS_OVERLAY_LAYERS } from '@/services/gibsLayers';
+import {
+  GIBS_BASE_LAYERS,
+  GIBS_OVERLAY_LAYERS,
+  GIBS_OVERLAY_WARN_THRESHOLD,
+  activeGibsOverlays,
+} from '@/services/gibsLayers';
 import { BASE_LAYER_OPTIONS } from '@/components/maps/baseLayerOptions';
 import { GROUP_CATALOG, type CelestrakGroup } from '@/services/celestrakGroups';
 import { EONET_CATEGORIES } from '@/services/eonetCategories';
@@ -103,6 +108,7 @@ export default function LayerPanel({ className = '' }: Props) {
       {/* GIBS OVERLAYS */}
       <fieldset className="space-y-2">
         <legend className="label">{t('layers.gibsOverlays')}</legend>
+        <GibsOverlaysWarning />
         <ul className="space-y-2">
           {GIBS_OVERLAY_LAYERS.map((layer) => {
             const id = layer.id as LayerId;
@@ -683,6 +689,23 @@ interface OpacityProps {
   value: number;
   onChange: (v: number) => void;
   label: string;
+}
+
+/**
+ * Warning inline sopra la sezione overlay GIBS: comparso quando l'utente ha
+ * attivato ≥ GIBS_OVERLAY_WARN_THRESHOLD overlay simultanei. Non si dismette:
+ * sparisce automaticamente quando si scende sotto soglia.
+ */
+function GibsOverlaysWarning() {
+  const overlays = useLayersStore((s) => s.overlays);
+  const { t } = useTranslation();
+  const active = activeGibsOverlays(overlays);
+  if (active.length < GIBS_OVERLAY_WARN_THRESHOLD) return null;
+  return (
+    <div className="rounded-md border border-risk-mid/40 bg-risk-mid/10 px-2 py-1.5 text-[11px] text-risk-mid">
+      ⚠ {t('layers.gibsOverlaysWarning', { count: active.length })}
+    </div>
+  );
 }
 
 function OpacitySlider({ id, value, onChange, label }: OpacityProps) {
