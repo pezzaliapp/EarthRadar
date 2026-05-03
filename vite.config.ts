@@ -174,8 +174,29 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
-    // Punto 2 chiarificazioni: react-globe.gl pretende una singola istanza di three.
-    dedupe: ['three'],
+    // three: react-globe.gl pretende una singola istanza.
+    // react/react-dom: hotfix per "Cannot read properties of null (reading 'useState')"
+    // — react-kapsule (dep transitiva di react-globe.gl) aveva pre-bundlato una sua
+    // copia di React, e gli hook chiamati da @ts/react finivano su un client diverso.
+    dedupe: ['three', 'react', 'react-dom', 'react/jsx-runtime'],
+  },
+  optimizeDeps: {
+    // Forziamo il pre-bundle di tutto lo stack React+routing+map nello stesso
+    // chunk, così esiste UNA sola istanza di react/react-dom in dev.
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react-router-dom',
+      'react-leaflet',
+      'leaflet',
+      'zustand',
+      'zustand/middleware',
+    ],
+    // Le dep 3D restano fuori dal pre-bundle: vengono caricate solo dai chunk
+    // lazy della Fase 3 (Globe3D) e non devono toccare l'entry della Home.
+    exclude: ['react-globe.gl', 'three', 'globe.gl'],
   },
   build: {
     sourcemap: false,
@@ -189,5 +210,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     css: false,
+    setupFiles: ['./src/test/setup.ts'],
   },
 });
