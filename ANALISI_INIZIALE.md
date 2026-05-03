@@ -94,7 +94,7 @@ Tutti i calcoli orbitali (propagazione SGP4, ground track) sono **client-side** 
 | **CelesTrak GP** | `celestrak.org/NORAD/elements/gp.php?GROUP=...&FORMAT=json` | nessuna | 6 h | propagato client-side | TLE statici (ISS, stations, starlink) |
 | **OpenSky States** | `opensky-network.org/api/states/all` | opzionale (rate limit più alto) | 30 s | poll 30 s | array vuoto + badge |
 | **Open-Meteo current** | `api.open-meteo.com/v1/forecast` | nessuna | 15 min | poll | array vuoto |
-| **Open-Meteo radar** | `api.open-meteo.com/v1/forecast?...precipitation` (tile o vector) | nessuna | 15 min | poll | array vuoto |
+| **RainViewer radar** | `api.rainviewer.com/public/weather-maps.json` (manifest) + `tilecache.rainviewer.com/.../{z}/{x}/{y}/...` | nessuna | 5 min (manifest) / tile-cache via SW | poll | layer disabilitato |
 | **NASA FIRMS** | `firms.modaps.eosdis.nasa.gov/api/area/csv/<MAP_KEY>/<source>/<area>/<days>` | `VITE_FIRMS_MAP_KEY` (gratis ma serve registrazione) | 30 min | poll | **GIBS Active Fires** (no key) |
 | **NASA EONET** | `eonet.gsfc.nasa.gov/api/v3/events?status=open` | nessuna | 1 h | poll | JSON locale |
 | **NASA GIBS WMTS** | `gibs.earthdata.nasa.gov/wmts/epsg3857/best/<LAYER>/default/<DATE>/<MATRIX>/{z}/{y}/{x}.{ext}` | nessuna | 24 h tile | n/a | OSM standard |
@@ -117,6 +117,19 @@ Tutti i calcoli orbitali (propagazione SGP4, ground track) sono **client-side** 
 | `gibs_seaice` | `AMSR2_Sea_Ice_Concentration_12km` | Ghiaccio marino |
 
 L'utente sceglie quali attivare da un pannello "GIBS Overlays" (toggle multiplo, opacity slider per ciascuno).
+
+## Chiarificazioni post-review iniziale (2026-05-03)
+
+Decisioni concordate con l'utente dopo la prima lettura del brief. Da considerare vincolanti.
+
+1. **`gibsLayers` con flag `isRealTime`**: il template `gibsTileUrl` portato da MeteorWatch usa `date - 1 day` per safety. Per i layer real-time (GOES GeoColor, GOES-GLM, MODIS Active Fires) lo shift è errato: serve un flag `isRealTime?: boolean` su `GibsLayer` per emettere il timestamp corretto.
+2. **`three` deduplicato**: `react-globe.gl` ha `three` come peer dep. Pinnare `three` alla major usata dal pacchetto e configurare `resolve.dedupe: ['three']` in `vite.config.ts`.
+3. **OpenSky degrade graceful**: poll 30 s + cache idb-keyval + badge "fonte saturata" su HTTP 429 ripetuti. Niente fail hard.
+4. **FIRMS è CSV**: il service deve includere un mini parser CSV, non `res.json()`.
+5. **RainViewer service separato**: tile overlay radar precipitazioni via RainViewer (`api.rainviewer.com` per il manifest + `tilecache.rainviewer.com` per i tile). **Open-Meteo** resta per dati punto (current + forecast 8 celle direzionali). I due layer convivono nel pannello "Meteo".
+6. **Texture Blue Marble adattiva**: 2K mobile / 8K desktop via CDN NASA Visible Earth (`visibleearth.nasa.gov` / `eoimages.gsfc.nasa.gov`). Switch via `matchMedia('(max-width: 768px)')`. Lazy import del modulo 3D.
+7. **Lightning v1.0**: solo GIBS GOES-GLM static. WS Blitzortung rimandato a v1.1 condizionato all'esistenza di un mirror stabile e CORS-friendly.
+8. **Radar Mode (eredità verde fosforo)**: Fase 5 strict optional. Decisione finale a Claude Code dopo che il resto è stabile. Se scartata, motivazione obbligatoria in CHANGELOG.
 
 ## Decisioni architetturali
 
