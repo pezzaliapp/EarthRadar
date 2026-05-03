@@ -1,0 +1,69 @@
+{
+  "common": {
+    "tagline": "Earth from space, in real time.",
+    "subtitle": "Everything moving above and below the surface, live.",
+    "online": "Online",
+    "offline": "Offline",
+    "loading": "Loading…",
+    "error": "Error",
+    "retry": "Retry",
+    "noData": "No data available",
+    "source": "Source",
+    "updated": "Updated",
+    "view2d": "2D map",
+    "view3d": "3D globe",
+    "comingSoon": "Coming soon"
+  },
+  "nav": {
+    "home": "Home",
+    "layers": "Layers",
+    "events": "Events",
+    "education": "Learn",
+    "about": "About",
+    "radar": "Radar"
+  },
+  "home": {
+    "headline": "What's happening on Earth right now?",
+    "intro": "Public USGS, NASA, NOAA, CelesTrak, OpenSky and Open-Meteo data combined in a single live view.",
+    "phase0Notice": "Phase 0: bootstrap done. The map and data layers ship in Phase 1.",
+    "highlights": "Coming in the next phases",
+    "highlightQuakes": "USGS real-time earthquakes",
+    "highlightSats": "CelesTrak satellites with SGP4 propagation",
+    "highlightAircraft": "OpenSky live air traffic",
+    "highlightWeather": "Open-Meteo current + RainViewer precipitation radar",
+    "highlightFires": "NASA FIRMS / GIBS Active Fires",
+    "highlightEonet": "NASA EONET natural events",
+    "highlightIss": "ISS live with ground track"
+  },
+  "education": {
+    "title": "Learn",
+    "subtitle": "Glossary, sources and how to read the data",
+    "comingSoon": "Education section coming soon: glossary, sources, and tutorials on magnitude scales, orbital classification, natural-event severity."
+  },
+  "about": {
+    "title": "About EarthRadar",
+    "version": "Version",
+    "intro": "EarthRadar is an educational PWA in the PezzaliAPP family. It answers the question \"what's happening on Earth right now?\" by combining public USGS, NASA, NOAA, CelesTrak, OpenSky and Open-Meteo data.",
+    "sisterTitle": "Sister apps",
+    "sisterIntro": "EarthRadar is part of the PezzaliAPP Earth & Space trilogy:",
+    "sourcesTitle": "Data sources",
+    "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · OpenSky Network · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
+  },
+  "radar": {
+    "title": "Radar Mode",
+    "subtitle": "Tribute to the original phosphor-green canvas",
+    "placeholder": "Optional section. To be enabled in Phase 5 once the rest is stable."
+  },
+  "footer": {
+    "about": "About",
+    "github": "GitHub",
+    "disclaimer": "Educational tool based on public USGS / NASA / NOAA / CelesTrak / OpenSky / Open-Meteo data. Does not replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems.",
+    "sisterApps": "Sister apps"
+  },
+  "disclaimer": {
+    "title": "EarthRadar — Notice",
+    "body": "Educational tool based on public USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo data. It does NOT replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems. Satellite positions are propagated from public TLEs (typical km-level uncertainty in LEO).",
+    "accept": "Understood, continue",
+    "short": "Educational tool. Does not replace official operational systems."
+  }
+}

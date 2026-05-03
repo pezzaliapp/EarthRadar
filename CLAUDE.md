@@ -83,7 +83,11 @@ I seguenti comandi sono autorizzati senza chiedere conferma all'utente, **solo d
 - `opensky-network.org`
 - `api.open-meteo.com`
 - `api.wheretheiss.at`
+- `api.rainviewer.com`
+- `tilecache.rainviewer.com`
 - `tile.openstreetmap.org`
+- `visibleearth.nasa.gov`
+- `eoimages.gsfc.nasa.gov`
 - `registry.npmjs.org`
 
 ## Workflow operativo — preferenze utente
@@ -183,6 +187,19 @@ public/          manifest.json, icons/, fallback-data/, CNAME, robots.txt
 - **Disclaimer divulgativo** sempre presente.
 - **Performance**: i layer si caricano on-demand (lazy import dei service). Il globo 3D si attiva solo se l'utente sceglie 3D.
 - **Mobile**: il globo 3D deve essere usabile anche su iPhone medio. Se le perf sono scarse, suggerisci automaticamente 2D.
+
+## Chiarificazioni post-review iniziale (2026-05-03)
+
+Decisioni concordate con l'utente dopo la prima lettura. Vincolanti come le decisioni architetturali sopra.
+
+1. **`gibsLayers` con flag `isRealTime`**: il porting da MeteorWatch usa `date - 1 day` per safety. Per layer real-time (GOES GeoColor, GOES-GLM, Active Fires) NON applicare lo shift: estendere `GibsLayer` con `isRealTime?: boolean` e usare `default` o timestamp recente.
+2. **`three` deduplicato**: `react-globe.gl` ha `three` come peer. Pinnare `three` alla stessa major usata da `react-globe.gl` e configurare `resolve.dedupe: ['three']` in `vite.config.ts` per evitare l'errore "Multiple instances of Three.js".
+3. **OpenSky degrade graceful**: poll 30s + cache + badge "fonte saturata" se 429 ripetuti. Niente fail hard.
+4. **FIRMS è CSV**: parser CSV minimale nel service, non `res.json()`.
+5. **RainViewer come overlay radar precipitazioni**: service distinto (`rainviewerApi.ts`) per il tile WMTS-like del radar. **Open-Meteo resta** per dati punto (current + forecast 8 celle direzionali). Entrambi nel pannello layer "Meteo".
+6. **Texture Blue Marble adattiva**: 2K per mobile, 8K per desktop, via CDN NASA Visible Earth (`visibleearth.nasa.gov` / `eoimages.gsfc.nasa.gov`). Lazy load con switch su `matchMedia('(max-width: 768px)')`.
+7. **Lightning v1.0**: solo GIBS GOES-GLM static. WS Blitzortung rimandato a v1.1 se emerge un mirror stabile e CORS-friendly. Non bloccare la release principale per questo.
+8. **Radar Mode (eredità verde fosforo)**: Fase 5 strict optional. Decisione finale dopo che il resto è stabile. Se scartata, motivazione in CHANGELOG.
 
 ## Anti-pattern da evitare (errori del progetto vecchio)
 
