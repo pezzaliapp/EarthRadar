@@ -25,7 +25,11 @@
   "home": {
     "headline": "What's happening on Earth right now?",
     "intro": "Public USGS, NASA, NOAA, CelesTrak, OpenSky and Open-Meteo data combined in a single live view.",
-    "phase0Notice": "Phase 0: bootstrap done. The map and data layers ship in Phase 1.",
+    "phase1Notice": "Phase 1 live: USGS quakes + switchable NASA GIBS tiles + terminator. Satellites, aircraft, weather, FIRMS, EONET, ISS still to come.",
+    "mapTitle": "Live map",
+    "listingTitle": "Earthquakes near map center",
+    "openLayers": "Open layer panel",
+    "closeLayers": "Close layer panel",
     "highlights": "Coming in the next phases",
     "highlightQuakes": "USGS real-time earthquakes",
     "highlightSats": "CelesTrak satellites with SGP4 propagation",
@@ -34,6 +38,33 @@
     "highlightFires": "NASA FIRMS / GIBS Active Fires",
     "highlightEonet": "NASA EONET natural events",
     "highlightIss": "ISS live with ground track"
+  },
+  "layers": {
+    "title": "Layers",
+    "subtitle": "Which sources to display",
+    "baseLayer": "Base map",
+    "dataLayers": "Data layers",
+    "gibsOverlays": "GIBS overlays",
+    "opacity": "Opacity",
+    "quakes": "USGS earthquakes",
+    "terminator": "Day/night terminator",
+    "modis": "MODIS",
+    "viirs": "VIIRS",
+    "blackMarble": "Black Marble",
+    "geoColor": "GOES live",
+    "osm": "OSM"
+  },
+  "quakes": {
+    "title": "USGS earthquakes",
+    "subtitle": "Real-time feed for the last 24 h",
+    "depth": "Depth",
+    "when": "When",
+    "tsunami": "Tsunami",
+    "openUsgs": "Open USGS page",
+    "empty": "No earthquakes in the last 24 h matching these filters.",
+    "stale": "Cached data (offline or API slow)",
+    "fallback": "Fallback data (offline)",
+    "loading": "Loading earthquakes…"
   },
   "education": {
     "title": "Learn",
