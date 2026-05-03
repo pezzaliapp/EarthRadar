@@ -2,6 +2,18 @@ import { useTranslation } from '@/i18n';
 import { useLayersStore, type LayerId } from '@/store/layersStore';
 import { GIBS_BASE_LAYERS, GIBS_OVERLAY_LAYERS } from '@/services/gibsLayers';
 import { BASE_LAYER_OPTIONS } from '@/components/maps/baseLayerOptions';
+import { GROUP_CATALOG, type CelestrakGroup } from '@/services/celestrakGroups';
+
+const GROUP_LABEL_KEY: Record<CelestrakGroup, string> = {
+  stations: 'satellites.groupStations',
+  visual: 'satellites.groupVisual',
+  starlink: 'satellites.groupStarlink',
+  'gps-ops': 'satellites.groupGps',
+  galileo: 'satellites.groupGalileo',
+  'glo-ops': 'satellites.groupGlonass',
+  science: 'satellites.groupScience',
+  weather: 'satellites.groupWeather',
+};
 
 interface Props {
   /** Mostrato come pannello laterale dentro un parent grid (desktop). */
@@ -69,6 +81,7 @@ export default function LayerPanel({ className = '' }: Props) {
           onToggle={(v) => setOverlayEnabled('quakes', v)}
           onOpacity={(v) => setOpacity('quakes', v)}
         />
+        <SatellitesRow />
         <ToggleRow
           id="terminator"
           label={`🌑 ${t('layers.terminator')}`}
@@ -110,6 +123,61 @@ export default function LayerPanel({ className = '' }: Props) {
         </p>
       </footer>
     </aside>
+  );
+}
+
+/**
+ * Riga "Satelliti" con sotto-toggles per i gruppi CelesTrak.
+ * Si espande quando il layer è attivo.
+ */
+function SatellitesRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const groups = useLayersStore((s) => s.satelliteGroups);
+  const toggleGroup = useLayersStore((s) => s.toggleSatelliteGroup);
+  const enabled = overlays.satellites?.enabled ?? false;
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('satellites', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">🛰️ {t('satellites.title')}</span>
+      </label>
+      {enabled && (
+        <div className="mt-2 space-y-1.5 pl-6">
+          <p className="label text-space-300">{t('satellites.groups')}</p>
+          <div className="grid grid-cols-1 gap-1">
+            {GROUP_CATALOG.map((spec) => {
+              const id = spec.id;
+              const active = groups.includes(id);
+              return (
+                <label
+                  key={id}
+                  className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-[11px] ${
+                    active
+                      ? 'border-cyan-glow/40 bg-cyan-glow/5 text-cyan-glow'
+                      : 'border-space-500/30 bg-space-800/40 text-space-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={() => toggleGroup(id)}
+                    className="h-3.5 w-3.5 accent-cyan-glow"
+                  />
+                  <span>{t(GROUP_LABEL_KEY[id])}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

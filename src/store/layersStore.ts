@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { DEFAULT_GROUPS, type CelestrakGroup } from '@/services/celestrakGroups';
 
 /**
  * Identificatori dei layer dati. I layer GIBS usano gli stessi id di gibsLayers.ts.
@@ -36,11 +37,22 @@ interface LayerSettings {
   opacity: number; // 0..1
 }
 
+/** Identificazione del satellite selezionato (per il pannello dettaglio). */
+export interface SelectedSatellite {
+  noradId: number;
+  name: string;
+}
+
 interface LayersState {
   /** Layer base mappa attivo (esattamente uno). */
   baseLayer: LayerId;
   /** Stato per-layer (overlay e dati). Non include il base. */
   overlays: Record<LayerId, LayerSettings>;
+  /** Gruppi CelesTrak da scaricare quando il layer "satellites" è attivo. */
+  satelliteGroups: CelestrakGroup[];
+  /** Satellite selezionato per il pannello dettaglio. */
+  selectedSatellite: SelectedSatellite | null;
+
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
   /** Mostra/nasconde un overlay. */
@@ -50,6 +62,12 @@ interface LayersState {
   setOpacity: (id: LayerId, opacity: number) => void;
   /** True se il layer è attivo (base o overlay enabled). */
   isActive: (id: LayerId) => boolean;
+
+  /** Aggiunge / rimuove / imposta i gruppi CelesTrak attivi. */
+  toggleSatelliteGroup: (group: CelestrakGroup) => void;
+  setSatelliteGroups: (groups: CelestrakGroup[]) => void;
+  /** Seleziona / deseleziona il satellite mostrato nel pannello dettaglio. */
+  setSelectedSatellite: (sel: SelectedSatellite | null) => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -91,6 +109,8 @@ export const useLayersStore = create<LayersState>()(
     (set, get) => ({
       baseLayer: 'gibs_viirs_truecolor',
       overlays: DEFAULT_OVERLAYS,
+      satelliteGroups: [...DEFAULT_GROUPS],
+      selectedSatellite: null,
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -114,11 +134,23 @@ export const useLayersStore = create<LayersState>()(
         const s = get();
         return s.baseLayer === id || s.overlays[id]?.enabled === true;
       },
+      toggleSatelliteGroup: (group) =>
+        set((s) => ({
+          satelliteGroups: s.satelliteGroups.includes(group)
+            ? s.satelliteGroups.filter((g) => g !== group)
+            : [...s.satelliteGroups, group],
+        })),
+      setSatelliteGroups: (groups) => set({ satelliteGroups: [...groups] }),
+      setSelectedSatellite: (selectedSatellite) => set({ selectedSatellite }),
     }),
     {
       name: 'earthradar:layers',
-      version: 1,
-      partialize: (s) => ({ baseLayer: s.baseLayer, overlays: s.overlays }),
+      version: 2,
+      partialize: (s) => ({
+        baseLayer: s.baseLayer,
+        overlays: s.overlays,
+        satelliteGroups: s.satelliteGroups,
+      }),
       // Merge per non perdere nuovi layer aggiunti in versioni successive del codice.
       merge: (persisted, current) => {
         const p = (persisted as Partial<LayersState>) ?? {};
@@ -126,6 +158,7 @@ export const useLayersStore = create<LayersState>()(
           ...current,
           baseLayer: p.baseLayer ?? current.baseLayer,
           overlays: { ...current.overlays, ...(p.overlays ?? {}) },
+          satelliteGroups: p.satelliteGroups ?? current.satelliteGroups,
         };
       },
     },
