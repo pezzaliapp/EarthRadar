@@ -4,6 +4,7 @@ import { GIBS_BASE_LAYERS, GIBS_OVERLAY_LAYERS } from '@/services/gibsLayers';
 import { BASE_LAYER_OPTIONS } from '@/components/maps/baseLayerOptions';
 import { GROUP_CATALOG, type CelestrakGroup } from '@/services/celestrakGroups';
 import { EONET_CATEGORIES } from '@/services/eonetCategories';
+import { firmsMapKey, type FirmsDayRange, type FirmsSource } from '@/services/firmsApi';
 
 const GROUP_LABEL_KEY: Record<CelestrakGroup, string> = {
   stations: 'satellites.groupStations',
@@ -88,6 +89,7 @@ export default function LayerPanel({ className = '' }: Props) {
         <WeatherRow />
         <RainRadarRow />
         <EonetRow />
+        <FiresRow />
         <ToggleRow
           id="terminator"
           label={`🌑 ${t('layers.terminator')}`}
@@ -425,6 +427,131 @@ function EonetRow() {
           </div>
 
           <p className="text-[10px] text-space-300">{t('eonet.attribution')}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Riga "Incendi attivi" — FIRMS NRT con fallback automatico GIBS.
+ *
+ * - Se VITE_FIRMS_MAP_KEY è configurata: badge FIRMS, selettore source,
+ *   slider day range 1..7.
+ * - Se manca: badge giallo "GIBS · MODIS Fires (fallback)" + CTA per
+ *   ottenere una map key gratuita. I controlli di FIRMS restano nascosti
+ *   perché in questo caso l'overlay GIBS è giornaliero e non parametrizzabile.
+ */
+function FiresRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const setOpacity = useLayersStore((s) => s.setOpacity);
+  const source = useLayersStore((s) => s.firesSource);
+  const setSource = useLayersStore((s) => s.setFiresSource);
+  const dayRange = useLayersStore((s) => s.firesDayRange);
+  const setDayRange = useLayersStore((s) => s.setFiresDayRange);
+  const enabled = overlays.firms?.enabled ?? false;
+  const opacity = overlays.firms?.opacity ?? 1;
+  const hasKey = firmsMapKey() !== null;
+  const sources: FirmsSource[] = ['VIIRS_SNPP_NRT', 'VIIRS_NOAA20_NRT', 'MODIS_NRT'];
+  const sourceLabel = (id: FirmsSource): string => {
+    if (id === 'VIIRS_SNPP_NRT') return t('fires.sourceVIIRS_SNPP');
+    if (id === 'VIIRS_NOAA20_NRT') return t('fires.sourceVIIRS_NOAA20');
+    return t('fires.sourceMODIS');
+  };
+  const isModis = source === 'MODIS_NRT';
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('firms', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">🔥 {t('fires.title')}</span>
+        <span className="text-[10px] font-mono text-space-300">{Math.round(opacity * 100)}%</span>
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={opacity}
+        onChange={(e) => setOpacity('firms', Number(e.target.value))}
+        className="mt-2 w-full accent-magenta-glow disabled:opacity-40"
+        disabled={!enabled}
+        aria-label="Fires opacity"
+      />
+      {enabled && (
+        <div className="mt-2 space-y-2 pl-6">
+          {/* Badge dinamico */}
+          <p
+            className={`inline-block rounded-md border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
+              hasKey
+                ? 'border-risk-low/40 bg-risk-low/10 text-risk-low'
+                : 'border-risk-mid/40 bg-risk-mid/10 text-risk-mid'
+            }`}
+          >
+            {hasKey
+              ? isModis
+                ? t('fires.badgeFirmsModis')
+                : t('fires.badgeFirms')
+              : t('fires.badgeGibsFallback')}
+          </p>
+
+          {hasKey && (
+            <>
+              <label className="block text-[11px] text-space-200">
+                <span className="label">{t('fires.sourceLabel')}</span>
+                <select
+                  value={source}
+                  onChange={(e) => setSource(e.target.value as FirmsSource)}
+                  className="mt-1 w-full rounded-md border border-space-500/40 bg-space-800/60 px-2 py-1 font-mono text-[11px] text-space-50"
+                >
+                  {sources.map((s) => (
+                    <option key={s} value={s}>
+                      {sourceLabel(s)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-[11px] text-space-200">
+                <span className="flex-shrink-0">{t('fires.dayRangeLabel')}</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={7}
+                  step={1}
+                  value={dayRange}
+                  onChange={(e) => setDayRange(Number(e.target.value) as FirmsDayRange)}
+                  className="flex-1 accent-cyan-glow"
+                  aria-label="FIRMS day range"
+                />
+                <span className="w-10 text-right font-mono text-[10px] text-space-300">
+                  {dayRange} d
+                </span>
+              </label>
+            </>
+          )}
+
+          {!hasKey && (
+            <div className="space-y-1 rounded-md border border-risk-mid/40 bg-risk-mid/5 p-2 text-[11px]">
+              <p className="font-semibold text-risk-mid">{t('fires.missingKeyTitle')}</p>
+              <p className="text-space-200">{t('fires.missingKeyBody')}</p>
+              <a
+                className="inline-block underline decoration-dotted text-cyan-glow"
+                href="https://firms.modaps.eosdis.nasa.gov/api/area/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t('fires.missingKeyCta')} ↗
+              </a>
+            </div>
+          )}
+
+          <p className="text-[10px] text-space-300">{t('fires.attribution')}.</p>
         </div>
       )}
     </div>

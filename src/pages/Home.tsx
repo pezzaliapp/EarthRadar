@@ -32,6 +32,11 @@ const EonetDetailPanel = lazy(() => import('@/components/panels/EonetDetailPanel
 // montati solo quando il layer ISS è attivo.
 const IssLayer = lazy(() => import('@/components/overlays/IssLayer'));
 const IssPanel = lazy(() => import('@/components/panels/IssPanel'));
+// FIRMS: due chunk separati — FireLayer (NRT con map key) e GibsFiresOverlay
+// (fallback senza key). Solo uno dei due è attivo runtime.
+const FireLayer = lazy(() => import('@/components/overlays/FireLayer'));
+const GibsFiresOverlay = lazy(() => import('@/components/overlays/GibsFiresOverlay'));
+const FireDetailPanel = lazy(() => import('@/components/panels/FireDetailPanel'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -62,6 +67,8 @@ export default function Home() {
   const eonetEnabled = useLayersStore((s) => s.overlays.eonet?.enabled ?? false);
   const eonetSelectedId = useLayersStore((s) => s.eonetSelectedEventId);
   const issEnabled = useLayersStore((s) => s.overlays.iss?.enabled ?? false);
+  const firmsEnabled = useLayersStore((s) => s.overlays.firms?.enabled ?? false);
+  const selectedFireId = useLayersStore((s) => s.selectedFireId);
 
   const aircraft = useAircraft(aircraftEnabled);
 
@@ -129,6 +136,16 @@ export default function Home() {
               {issEnabled && (
                 <Suspense fallback={null}>
                   <IssLayer />
+                </Suspense>
+              )}
+              {firmsEnabled && (
+                <Suspense fallback={null}>
+                  <FireLayer />
+                </Suspense>
+              )}
+              {firmsEnabled && (
+                <Suspense fallback={null}>
+                  <GibsFiresOverlay />
                 </Suspense>
               )}
             </Map2D>
@@ -208,6 +225,11 @@ export default function Home() {
           {issEnabled && (
             <Suspense fallback={null}>
               <IssPanel />
+            </Suspense>
+          )}
+          {firmsEnabled && selectedFireId && (
+            <Suspense fallback={null}>
+              <FireDetailPanel />
             </Suspense>
           )}
           <LayerPanel />

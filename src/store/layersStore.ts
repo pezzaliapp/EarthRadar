@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_GROUPS, type CelestrakGroup } from '@/services/celestrakGroups';
+import type { FirmsDayRange, FirmsSource } from '@/services/firmsApi';
 
 /**
  * Identificatori dei layer dati. I layer GIBS usano gli stessi id di gibsLayers.ts.
@@ -103,6 +104,13 @@ interface LayersState {
    */
   userLocationForPasses: { lat: number; lon: number } | null;
 
+  /** Sorgente FIRMS attiva (VIIRS Suomi NPP, NOAA-20, MODIS NRT). */
+  firesSource: FirmsSource;
+  /** Finestra temporale FIRMS (1..7 giorni). */
+  firesDayRange: FirmsDayRange;
+  /** ID hotspot FIRMS selezionato (composito lat,lon,acqDate,acqTime). */
+  selectedFireId: string | null;
+
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
   /** Mostra/nasconde un overlay. */
@@ -143,6 +151,10 @@ interface LayersState {
 
   setIssShowGroundTrack: (v: boolean) => void;
   setUserLocationForPasses: (loc: { lat: number; lon: number } | null) => void;
+
+  setFiresSource: (s: FirmsSource) => void;
+  setFiresDayRange: (d: FirmsDayRange) => void;
+  setSelectedFireId: (id: string | null) => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -201,6 +213,9 @@ export const useLayersStore = create<LayersState>()(
       eonetStatus: 'open',
       issShowGroundTrack: true,
       userLocationForPasses: null,
+      firesSource: 'VIIRS_SNPP_NRT',
+      firesDayRange: 1,
+      selectedFireId: null,
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -259,10 +274,13 @@ export const useLayersStore = create<LayersState>()(
       setEonetStatus: (eonetStatus) => set({ eonetStatus }),
       setIssShowGroundTrack: (issShowGroundTrack) => set({ issShowGroundTrack }),
       setUserLocationForPasses: (userLocationForPasses) => set({ userLocationForPasses }),
+      setFiresSource: (firesSource) => set({ firesSource }),
+      setFiresDayRange: (firesDayRange) => set({ firesDayRange }),
+      setSelectedFireId: (selectedFireId) => set({ selectedFireId }),
     }),
     {
       name: 'earthradar:layers',
-      version: 6,
+      version: 7,
       partialize: (s) => ({
         baseLayer: s.baseLayer,
         overlays: s.overlays,
@@ -276,6 +294,8 @@ export const useLayersStore = create<LayersState>()(
         eonetStatus: s.eonetStatus,
         issShowGroundTrack: s.issShowGroundTrack,
         userLocationForPasses: s.userLocationForPasses,
+        firesSource: s.firesSource,
+        firesDayRange: s.firesDayRange,
       }),
       // Merge per non perdere nuovi layer aggiunti in versioni successive del codice.
       merge: (persisted, current) => {
@@ -295,6 +315,8 @@ export const useLayersStore = create<LayersState>()(
           eonetStatus: p.eonetStatus ?? current.eonetStatus,
           issShowGroundTrack: p.issShowGroundTrack ?? current.issShowGroundTrack,
           userLocationForPasses: p.userLocationForPasses ?? current.userLocationForPasses,
+          firesSource: p.firesSource ?? current.firesSource,
+          firesDayRange: p.firesDayRange ?? current.firesDayRange,
         };
       },
     },
