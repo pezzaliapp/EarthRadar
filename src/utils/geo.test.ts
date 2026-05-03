@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { haversineKm, bearingDeg, projectAhead } from './geo';
+import { haversineKm, bearingDeg, projectAhead, pointAtDistance, compassGrid } from './geo';
 
 describe('haversineKm', () => {
   it('returns 0 for identical points', () => {
@@ -56,5 +56,38 @@ describe('projectAhead', () => {
     const end = projectAhead(45, 9, 90, 0, 60);
     expect(end.lat).toBeCloseTo(45, 8);
     expect(end.lon).toBeCloseTo(9, 8);
+  });
+});
+
+describe('pointAtDistance', () => {
+  it('returns a point at exact great-circle distance', () => {
+    const p = pointAtDistance(45, 9, 90, 100);
+    const d = haversineKm(45, 9, p.lat, p.lon);
+    expect(d).toBeCloseTo(100, 0);
+  });
+
+  it('handles 360° wraparound around the meridian', () => {
+    const p = pointAtDistance(0, 179.5, 90, 100);
+    expect(p.lon).toBeLessThan(0); // dovrebbe wrappare verso longitudini negative
+  });
+});
+
+describe('compassGrid', () => {
+  it('produces 8 cells, each at the requested distance from center', () => {
+    const grid = compassGrid(45, 9, 100);
+    expect(grid).toHaveLength(8);
+    expect(grid.map((c) => c.key)).toEqual(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']);
+    for (const c of grid) {
+      const d = haversineKm(45, 9, c.lat, c.lon);
+      expect(d).toBeCloseTo(100, 0);
+    }
+  });
+
+  it('north cell has higher latitude, south cell has lower', () => {
+    const grid = compassGrid(45, 9, 100);
+    const n = grid.find((c) => c.key === 'N')!;
+    const s = grid.find((c) => c.key === 'S')!;
+    expect(n.lat).toBeGreaterThan(45);
+    expect(s.lat).toBeLessThan(45);
   });
 });

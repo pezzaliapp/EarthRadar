@@ -49,6 +49,11 @@ export interface SelectedAircraft {
   callsign: string;
 }
 
+/** Cella meteo selezionata: direzione cardinale relativa al centro. */
+export interface SelectedWeatherCell {
+  direction: 'CENTER' | 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+}
+
 interface LayersState {
   /** Layer base mappa attivo (esattamente uno). */
   baseLayer: LayerId;
@@ -65,6 +70,21 @@ interface LayersState {
   aircraftShowVelocityVectors: boolean;
   /** Aereo selezionato per il pannello dettaglio. */
   selectedAircraft: SelectedAircraft | null;
+
+  /** Distanza in km tra centro mappa e celle meteo direzionali. */
+  weatherGridStepKm: number;
+  /** Cella meteo selezionata. */
+  selectedWeatherCell: SelectedWeatherCell | null;
+  /** Centro mappa corrente [lat, lon]. Transiente (non persistito).
+   *  Aggiornato da un piccolo bridge dentro Map2D — letto da WeatherLayer/Panel. */
+  mapCenter: [number, number];
+
+  /** Indice del frame radar attualmente mostrato (in `frames.all`). */
+  rainRadarFrameIndex: number;
+  /** True se l'animazione radar sta riproducendo. */
+  rainRadarPlaying: boolean;
+  /** Opacità tile radar precipitazioni 0..1 (default 0.7). */
+  rainRadarOpacity: number;
 
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
@@ -87,6 +107,14 @@ interface LayersState {
   setAircraftShowVelocityVectors: (v: boolean) => void;
   /** Seleziona / deseleziona l'aereo mostrato nel pannello dettaglio. */
   setSelectedAircraft: (sel: SelectedAircraft | null) => void;
+
+  /** Setter per la sezione meteo. */
+  setWeatherGridStepKm: (v: number) => void;
+  setSelectedWeatherCell: (sel: SelectedWeatherCell | null) => void;
+  setMapCenter: (c: [number, number]) => void;
+  setRainRadarFrameIndex: (i: number) => void;
+  setRainRadarPlaying: (v: boolean) => void;
+  setRainRadarOpacity: (v: number) => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -133,6 +161,12 @@ export const useLayersStore = create<LayersState>()(
       aircraftShowOnGround: false,
       aircraftShowVelocityVectors: true,
       selectedAircraft: null,
+      weatherGridStepKm: 100,
+      selectedWeatherCell: null,
+      mapCenter: [44.698, 10.631],
+      rainRadarFrameIndex: 0,
+      rainRadarPlaying: false,
+      rainRadarOpacity: 0.7,
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -168,16 +202,27 @@ export const useLayersStore = create<LayersState>()(
       setAircraftShowVelocityVectors: (aircraftShowVelocityVectors) =>
         set({ aircraftShowVelocityVectors }),
       setSelectedAircraft: (selectedAircraft) => set({ selectedAircraft }),
+      setWeatherGridStepKm: (weatherGridStepKm) =>
+        set({ weatherGridStepKm: Math.max(20, Math.min(500, weatherGridStepKm)) }),
+      setSelectedWeatherCell: (selectedWeatherCell) => set({ selectedWeatherCell }),
+      setMapCenter: (mapCenter) => set({ mapCenter }),
+      setRainRadarFrameIndex: (rainRadarFrameIndex) =>
+        set({ rainRadarFrameIndex: Math.max(0, rainRadarFrameIndex) }),
+      setRainRadarPlaying: (rainRadarPlaying) => set({ rainRadarPlaying }),
+      setRainRadarOpacity: (rainRadarOpacity) =>
+        set({ rainRadarOpacity: clamp01(rainRadarOpacity) }),
     }),
     {
       name: 'earthradar:layers',
-      version: 3,
+      version: 4,
       partialize: (s) => ({
         baseLayer: s.baseLayer,
         overlays: s.overlays,
         satelliteGroups: s.satelliteGroups,
         aircraftShowOnGround: s.aircraftShowOnGround,
         aircraftShowVelocityVectors: s.aircraftShowVelocityVectors,
+        weatherGridStepKm: s.weatherGridStepKm,
+        rainRadarOpacity: s.rainRadarOpacity,
       }),
       // Merge per non perdere nuovi layer aggiunti in versioni successive del codice.
       merge: (persisted, current) => {
@@ -190,6 +235,8 @@ export const useLayersStore = create<LayersState>()(
           aircraftShowOnGround: p.aircraftShowOnGround ?? current.aircraftShowOnGround,
           aircraftShowVelocityVectors:
             p.aircraftShowVelocityVectors ?? current.aircraftShowVelocityVectors,
+          weatherGridStepKm: p.weatherGridStepKm ?? current.weatherGridStepKm,
+          rainRadarOpacity: p.rainRadarOpacity ?? current.rainRadarOpacity,
         };
       },
     },
