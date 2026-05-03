@@ -342,6 +342,17 @@
       "high": "Megafire / severe"
     }
   },
+  "lightning": {
+    "title": "Lightning",
+    "subtitle": "Global mean flash density (LIS / TRMM climatology)",
+    "mvpBanner": "Static MVP — global mean lightning density. Live Blitzortung WebSocket in v1.1.",
+    "detailTitle": "Lightning panel",
+    "detailIntro": "v1.0 shows a climatological density map (events/year/km²). Individual strikes are not queryable — they'll arrive in v1.1 via Blitzortung WebSocket.",
+    "detailBullet1": "Source: NASA LIS/TRMM (1998–2014) + ISS-LIS, coverage ±38° lat with polar fade.",
+    "detailBullet2": "Hottest zones: Central Africa, Indonesia, Florida, Congo basin.",
+    "detailBullet3": "v1.1 will overlay live strikes while keeping this tile as climatological backdrop.",
+    "attribution": "NASA GIBS · LIS/TRMM Lightning Climatology"
+  },
   "education": {
     "title": "Learn",
     "subtitle": "Glossary, sources and how to read the data",

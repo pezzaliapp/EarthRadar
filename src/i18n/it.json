@@ -342,6 +342,17 @@
       "high": "Megafire / severo"
     }
   },
+  "lightning": {
+    "title": "Fulmini",
+    "subtitle": "Densità globale media (climatologia LIS / TRMM)",
+    "mvpBanner": "MVP statico — densità globale media dei fulmini. WebSocket Blitzortung live in v1.1.",
+    "detailTitle": "Pannello fulmini",
+    "detailIntro": "In v1.0 il layer mostra una mappa di densità climatologica (eventi/anno/km²). Singoli strike non interrogabili — arriveranno in v1.1 con WebSocket Blitzortung.",
+    "detailBullet1": "Sorgente: NASA LIS/TRMM (1998–2014) + ISS-LIS, copertura ±38° lat con sfumatura ai poli.",
+    "detailBullet2": "Le zone più \"calde\" sono Africa centrale, Indonesia, Florida, bacino del Congo.",
+    "detailBullet3": "v1.1 sovrapporrà gli strike live mantenendo questo tile come sfondo climatologico.",
+    "attribution": "NASA GIBS · LIS/TRMM Lightning Climatology"
+  },
   "education": {
     "title": "Educa",
     "subtitle": "Glossario, fonti e come si leggono i dati",
