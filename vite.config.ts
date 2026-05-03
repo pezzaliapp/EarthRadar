@@ -52,6 +52,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,json}'],
+        // Escludiamo il chunk Globe3D dal precache: pesa ~523 KB gzip
+        // (three + react-globe.gl + globe.gl) e l'utente 2D non deve pagarlo
+        // all'install. Quando l'utente clicca "Globo 3D" il chunk viene
+        // scaricato on-demand e poi caduto in runtime cache via SW.
+        globIgnores: ['**/Globe3D-*.js'],
         navigateFallback: '/EarthRadar/index.html',
         navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
         // Pre-cache budget bumped because of three.js + leaflet + globe textures.
@@ -200,7 +205,11 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
-    chunkSizeWarningLimit: 1200,
+    // Globe3D pesa ~1.85 MB minified per il bundle three+react-globe.gl. È
+    // lazy + escluso dal precache PWA: il warning non aggiunge informazione
+    // utile, lo alziamo a 2 MB per silenziarlo senza nascondere altri chunk
+    // potenzialmente problematici.
+    chunkSizeWarningLimit: 2000,
   },
   server: {
     host: true,

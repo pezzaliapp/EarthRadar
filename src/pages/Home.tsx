@@ -11,6 +11,8 @@ import { useQuakes } from '@/hooks/useQuakes';
 import { useAircraft } from '@/hooks/useAircraft';
 import { remainingCooldownMs } from '@/services/openSkyRateLimit';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { activeGibsOverlays } from '@/services/gibsLayers';
 import type { Quake } from '@/services/usgsQuakesApi';
 
 // satellite.js entra in un chunk separato — caricato solo quando l'utente
@@ -41,6 +43,9 @@ const FireDetailPanel = lazy(() => import('@/components/panels/FireDetailPanel')
 // per WS Blitzortung in v1.1).
 const LightningLayer = lazy(() => import('@/components/overlays/LightningLayer'));
 const LightningDetailPanel = lazy(() => import('@/components/panels/LightningDetailPanel'));
+// Globe3D: chunk pesante (react-globe.gl + three + globe.gl). Lazy: caricato
+// solo se l'utente passa in vista 3D. Mai eager.
+const Globe3D = lazy(() => import('@/components/maps/Globe3D'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -74,6 +79,12 @@ export default function Home() {
   const firmsEnabled = useLayersStore((s) => s.overlays.firms?.enabled ?? false);
   const selectedFireId = useLayersStore((s) => s.selectedFireId);
   const lightningEnabled = useLayersStore((s) => s.overlays.lightning?.enabled ?? false);
+  const overlays = useLayersStore((s) => s.overlays);
+  const viewMode = useSettingsStore((s) => s.viewMode);
+  const perfFallbackTriggered = useSettingsStore((s) => s.perfFallbackTriggered);
+  const is3D = viewMode === '3d';
+  const activeGibsCount = activeGibsOverlays(overlays).length;
+  const show2DOnlyBanner = is3D && (activeGibsCount > 0 || lightningEnabled || radarEnabled);
 
   const aircraft = useAircraft(aircraftEnabled);
 
@@ -111,55 +122,61 @@ export default function Home() {
       <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-3">
           <div className="relative" style={{ height: 'min(70vh, 560px)' }}>
-            <Map2D mapRef={mapRef} initialCenter={INITIAL_CENTER} initialZoom={INITIAL_ZOOM} height="100%">
-              <EarthquakeLayer quakes={quakes} onSelect={flyToQuake} />
-              {satellitesEnabled && (
-                <Suspense fallback={null}>
-                  <SatelliteLayer />
-                </Suspense>
-              )}
-              {aircraftEnabled && (
-                <Suspense fallback={null}>
-                  <AircraftLayer />
-                </Suspense>
-              )}
-              {weatherEnabled && (
-                <Suspense fallback={null}>
-                  <WeatherLayer />
-                </Suspense>
-              )}
-              {radarEnabled && (
-                <Suspense fallback={null}>
-                  <RainRadarLayer />
-                </Suspense>
-              )}
-              {eonetEnabled && (
-                <Suspense fallback={null}>
-                  <EonetLayer />
-                </Suspense>
-              )}
-              {issEnabled && (
-                <Suspense fallback={null}>
-                  <IssLayer />
-                </Suspense>
-              )}
-              {firmsEnabled && (
-                <Suspense fallback={null}>
-                  <FireLayer />
-                </Suspense>
-              )}
-              {firmsEnabled && (
-                <Suspense fallback={null}>
-                  <GibsFiresOverlay />
-                </Suspense>
-              )}
-              {lightningEnabled && (
-                <Suspense fallback={null}>
-                  <LightningLayer />
-                </Suspense>
-              )}
-            </Map2D>
-            {radarEnabled && (
+            {is3D ? (
+              <Suspense fallback={<div className="glass h-full w-full p-4 text-sm text-space-300">{t('home.globeLoading')}</div>}>
+                <Globe3D />
+              </Suspense>
+            ) : (
+              <Map2D mapRef={mapRef} initialCenter={INITIAL_CENTER} initialZoom={INITIAL_ZOOM} height="100%">
+                <EarthquakeLayer quakes={quakes} onSelect={flyToQuake} />
+                {satellitesEnabled && (
+                  <Suspense fallback={null}>
+                    <SatelliteLayer />
+                  </Suspense>
+                )}
+                {aircraftEnabled && (
+                  <Suspense fallback={null}>
+                    <AircraftLayer />
+                  </Suspense>
+                )}
+                {weatherEnabled && (
+                  <Suspense fallback={null}>
+                    <WeatherLayer />
+                  </Suspense>
+                )}
+                {radarEnabled && (
+                  <Suspense fallback={null}>
+                    <RainRadarLayer />
+                  </Suspense>
+                )}
+                {eonetEnabled && (
+                  <Suspense fallback={null}>
+                    <EonetLayer />
+                  </Suspense>
+                )}
+                {issEnabled && (
+                  <Suspense fallback={null}>
+                    <IssLayer />
+                  </Suspense>
+                )}
+                {firmsEnabled && (
+                  <Suspense fallback={null}>
+                    <FireLayer />
+                  </Suspense>
+                )}
+                {firmsEnabled && (
+                  <Suspense fallback={null}>
+                    <GibsFiresOverlay />
+                  </Suspense>
+                )}
+                {lightningEnabled && (
+                  <Suspense fallback={null}>
+                    <LightningLayer />
+                  </Suspense>
+                )}
+              </Map2D>
+            )}
+            {!is3D && radarEnabled && (
               <Suspense fallback={null}>
                 <RainRadarControls />
               </Suspense>
@@ -174,6 +191,18 @@ export default function Home() {
               {showPanelMobile ? t('home.closeLayers') : t('home.openLayers')}
             </button>
           </div>
+
+          {show2DOnlyBanner && (
+            <div className="rounded-md border border-risk-mid/40 bg-risk-mid/10 px-3 py-2 text-[11px] text-risk-mid">
+              ⚠ {t('home.overlayOnly2D')}
+            </div>
+          )}
+
+          {perfFallbackTriggered && !is3D && (
+            <div className="rounded-md border border-cyan-glow/30 bg-cyan-glow/5 px-3 py-2 text-[11px] text-cyan-glow">
+              ℹ {t('home.perfFallbackInfo')}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <div className="flex flex-wrap items-center gap-2">
