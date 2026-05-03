@@ -1,0 +1,69 @@
+{
+  "common": {
+    "tagline": "La Terra dallo spazio in tempo reale.",
+    "subtitle": "Tutto quello che si muove sopra e sotto la superficie, live.",
+    "online": "Online",
+    "offline": "Offline",
+    "loading": "Caricamento…",
+    "error": "Errore",
+    "retry": "Riprova",
+    "noData": "Nessun dato disponibile",
+    "source": "Fonte",
+    "updated": "Aggiornato",
+    "view2d": "Mappa 2D",
+    "view3d": "Globo 3D",
+    "comingSoon": "In arrivo"
+  },
+  "nav": {
+    "home": "Home",
+    "layers": "Layer",
+    "events": "Eventi",
+    "education": "Educa",
+    "about": "Info",
+    "radar": "Radar"
+  },
+  "home": {
+    "headline": "Cosa sta succedendo sulla Terra adesso?",
+    "intro": "Dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky e Open-Meteo combinati in un'unica vista live.",
+    "phase0Notice": "Fase 0: bootstrap completato. La mappa e i layer dati arrivano in Fase 1.",
+    "highlights": "In arrivo nelle prossime fasi",
+    "highlightQuakes": "Terremoti USGS in tempo reale",
+    "highlightSats": "Satelliti CelesTrak con propagazione SGP4",
+    "highlightAircraft": "Traffico aereo OpenSky",
+    "highlightWeather": "Meteo Open-Meteo + radar precipitazioni RainViewer",
+    "highlightFires": "Incendi NASA FIRMS / GIBS Active Fires",
+    "highlightEonet": "Eventi naturali NASA EONET",
+    "highlightIss": "ISS live con ground track"
+  },
+  "education": {
+    "title": "Educa",
+    "subtitle": "Glossario, fonti e come si leggono i dati",
+    "comingSoon": "Sezione divulgativa in arrivo. Mostrerà glossario, sorgenti e tutorial sulle scale di magnitudo, classificazione orbitale, scale di severità degli eventi naturali."
+  },
+  "about": {
+    "title": "Info su EarthRadar",
+    "version": "Versione",
+    "intro": "EarthRadar è una PWA divulgativa della famiglia PezzaliAPP. Risponde alla domanda \"cosa sta succedendo sulla Terra adesso?\" combinando dati USGS, NASA, NOAA, CelesTrak, OpenSky e Open-Meteo.",
+    "sisterTitle": "Sister app",
+    "sisterIntro": "EarthRadar fa parte della trilogia Earth & Space PezzaliAPP:",
+    "sourcesTitle": "Fonti dati",
+    "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · OpenSky Network · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
+  },
+  "radar": {
+    "title": "Radar Mode",
+    "subtitle": "Tributo al canvas verde fosforo del progetto originale",
+    "placeholder": "Sezione opzionale. Verrà attivata in Fase 5 dopo che il resto è stabile."
+  },
+  "footer": {
+    "about": "Info",
+    "github": "GitHub",
+    "disclaimer": "Strumento divulgativo basato su dati pubblici USGS / NASA / NOAA / CelesTrak / OpenSky / Open-Meteo. Non sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria.",
+    "sisterApps": "Sister app"
+  },
+  "disclaimer": {
+    "title": "EarthRadar — Avviso",
+    "body": "Strumento divulgativo basato su dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo. NON sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria. Posizioni satellitari propagate da TLE pubblici (incertezza tipica km su orbite basse).",
+    "accept": "Ho capito, continua",
+    "short": "Strumento divulgativo. Non sostituisce sistemi operativi ufficiali."
+  }
+}
