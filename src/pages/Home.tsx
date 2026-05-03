@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useRef, useState } from 'react';
 import type L from 'leaflet';
 import { useTranslation } from '@/i18n';
 import Map2D from '@/components/maps/Map2D';
@@ -7,8 +7,14 @@ import LayerPanel from '@/components/panels/LayerPanel';
 import QuakeListing from '@/components/panels/QuakeListing';
 import ViewModeToggle from '@/components/layout/ViewModeToggle';
 import { useQuakes } from '@/hooks/useQuakes';
+import { useLayersStore } from '@/store/layersStore';
 import type { Quake } from '@/services/usgsQuakesApi';
 import { formatRelativeTime } from '@/lib/quakeFormatters';
+
+// satellite.js entra in un chunk separato — lo carichiamo solo quando l'utente
+// attiva il layer satelliti o seleziona un satellite.
+const SatelliteLayer = lazy(() => import('@/components/overlays/SatelliteLayer'));
+const SatelliteDetailPanel = lazy(() => import('@/components/panels/SatelliteDetailPanel'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -21,6 +27,8 @@ export default function Home() {
   const [showPanelMobile, setShowPanelMobile] = useState(false);
 
   const { data: quakes, source, loading, fetchedAt, error, refresh } = useQuakes('all_day');
+  const satellitesEnabled = useLayersStore((s) => s.overlays.satellites?.enabled ?? false);
+  const selectedSat = useLayersStore((s) => s.selectedSatellite);
 
   const flyToQuake = useCallback((q: Quake) => {
     setSelectedId(q.id);
@@ -58,6 +66,11 @@ export default function Home() {
           <div className="relative" style={{ height: 'min(70vh, 560px)' }}>
             <Map2D mapRef={mapRef} initialCenter={INITIAL_CENTER} initialZoom={INITIAL_ZOOM} height="100%">
               <EarthquakeLayer quakes={quakes} onSelect={flyToQuake} />
+              {satellitesEnabled && (
+                <Suspense fallback={null}>
+                  <SatelliteLayer />
+                </Suspense>
+              )}
             </Map2D>
             <button
               type="button"
@@ -91,8 +104,13 @@ export default function Home() {
 
         <div
           id="layer-panel-mobile"
-          className={`${showPanelMobile ? '' : 'hidden'} lg:block lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto`}
+          className={`${showPanelMobile ? '' : 'hidden'} space-y-3 lg:block lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto`}
         >
+          {selectedSat && (
+            <Suspense fallback={null}>
+              <SatelliteDetailPanel />
+            </Suspense>
+          )}
           <LayerPanel />
         </div>
       </section>
