@@ -25,7 +25,11 @@
   "home": {
     "headline": "Cosa sta succedendo sulla Terra adesso?",
     "intro": "Dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky e Open-Meteo combinati in un'unica vista live.",
-    "phase0Notice": "Fase 0: bootstrap completato. La mappa e i layer dati arrivano in Fase 1.",
+    "phase1Notice": "Fase 1 attiva: terremoti USGS live + tile NASA GIBS commutabili + terminatore. Restano da aggiungere satelliti, aerei, meteo, FIRMS, EONET, ISS.",
+    "mapTitle": "Mappa live",
+    "listingTitle": "Terremoti vicino al centro mappa",
+    "openLayers": "Apri pannello layer",
+    "closeLayers": "Chiudi pannello layer",
     "highlights": "In arrivo nelle prossime fasi",
     "highlightQuakes": "Terremoti USGS in tempo reale",
     "highlightSats": "Satelliti CelesTrak con propagazione SGP4",
@@ -34,6 +38,33 @@
     "highlightFires": "Incendi NASA FIRMS / GIBS Active Fires",
     "highlightEonet": "Eventi naturali NASA EONET",
     "highlightIss": "ISS live con ground track"
+  },
+  "layers": {
+    "title": "Layer",
+    "subtitle": "Quali fonti vuoi vedere",
+    "baseLayer": "Mappa base",
+    "dataLayers": "Layer dati",
+    "gibsOverlays": "Overlay GIBS",
+    "opacity": "Opacità",
+    "quakes": "Terremoti USGS",
+    "terminator": "Terminatore giorno/notte",
+    "modis": "MODIS",
+    "viirs": "VIIRS",
+    "blackMarble": "Black Marble",
+    "geoColor": "GOES live",
+    "osm": "OSM"
+  },
+  "quakes": {
+    "title": "Terremoti USGS",
+    "subtitle": "Feed real-time delle ultime 24 h",
+    "depth": "Profondità",
+    "when": "Quando",
+    "tsunami": "Tsunami",
+    "openUsgs": "Apri pagina USGS",
+    "empty": "Nessun terremoto nelle ultime 24 h con questi filtri.",
+    "stale": "Dati in cache (offline o API rallentata)",
+    "fallback": "Dati di fallback (offline)",
+    "loading": "Caricamento terremoti…"
   },
   "education": {
     "title": "Educa",
