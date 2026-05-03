@@ -83,6 +83,7 @@ export default function LayerPanel({ className = '' }: Props) {
           onOpacity={(v) => setOpacity('quakes', v)}
         />
         <SatellitesRow />
+        <IssRow />
         <AircraftRow />
         <WeatherRow />
         <RainRadarRow />
@@ -424,6 +425,57 @@ function EonetRow() {
           </div>
 
           <p className="text-[10px] text-space-300">{t('eonet.attribution')}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Riga ISS dedicata: layer separato dal cluster satelliti, con extra ground track. */
+function IssRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const setOpacity = useLayersStore((s) => s.setOpacity);
+  const showTrack = useLayersStore((s) => s.issShowGroundTrack);
+  const setShowTrack = useLayersStore((s) => s.setIssShowGroundTrack);
+  const enabled = overlays.iss?.enabled ?? false;
+  const opacity = overlays.iss?.opacity ?? 1;
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('iss', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">🛰️ {t('iss.title')}</span>
+        <span className="text-[10px] font-mono text-space-300">{Math.round(opacity * 100)}%</span>
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={opacity}
+        onChange={(e) => setOpacity('iss', Number(e.target.value))}
+        className="mt-2 w-full accent-magenta-glow disabled:opacity-40"
+        disabled={!enabled}
+        aria-label="ISS opacity"
+      />
+      {enabled && (
+        <div className="mt-2 space-y-1.5 pl-6">
+          <label className="flex cursor-pointer items-center gap-2 text-[11px] text-space-200">
+            <input
+              type="checkbox"
+              checked={showTrack}
+              onChange={(e) => setShowTrack(e.target.checked)}
+              className="h-3.5 w-3.5 accent-cyan-glow"
+            />
+            <span>{t('iss.showGroundTrack')}</span>
+          </label>
+          <p className="text-[10px] text-space-300">{t('iss.attribution')}.</p>
         </div>
       )}
     </div>
