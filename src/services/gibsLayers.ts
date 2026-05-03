@@ -220,3 +220,51 @@ export function gibsTileUrl(layer: GibsLayer, now: Date = new Date()): string {
 /** Layer raggruppati per categoria, comodi per la UI del LayerPanel. */
 export const GIBS_BASE_LAYERS = GIBS_LAYERS.filter((l) => l.category === 'base');
 export const GIBS_OVERLAY_LAYERS = GIBS_LAYERS.filter((l) => l.category === 'overlay');
+
+/**
+ * Soglia oltre la quale mostriamo un warning all'utente perché ogni overlay
+ * GIBS attivo equivale a un set di tile in più scaricati dal CDN NASA.
+ * 3 è il numero a cui in mobile 4G iniziamo a vedere ritardi percepibili.
+ */
+export const GIBS_OVERLAY_WARN_THRESHOLD = 3;
+
+export interface GibsOverlayActive {
+  id: string;
+  shortLabel: string;
+}
+
+/**
+ * Filtra il record `overlays` dello store ai soli overlay GIBS attivi.
+ * Esposto per i panel (LayerPanel warning, attribution chip, badge contatore).
+ *
+ * NB: non considera `category === 'base'`, che vive in `baseLayer` separato.
+ */
+export function activeGibsOverlays(
+  overlaysState: Record<string, { enabled: boolean }>,
+): GibsOverlayActive[] {
+  const out: GibsOverlayActive[] = [];
+  for (const layer of GIBS_OVERLAY_LAYERS) {
+    if (overlaysState[layer.id]?.enabled) {
+      out.push({ id: layer.id, shortLabel: shortLabelFor(layer.id) });
+    }
+  }
+  return out;
+}
+
+/** Etichetta corta per l'attribution chip (no i18n: nomi tecnici di sensori). */
+function shortLabelFor(id: string): string {
+  switch (id) {
+    case 'gibs_temperature':
+      return 'AIRS';
+    case 'gibs_aerosol':
+      return 'MODIS AOD';
+    case 'gibs_fires':
+      return 'MODIS Fires';
+    case 'gibs_snow':
+      return 'MODIS Snow';
+    case 'gibs_seaice':
+      return 'AMSR2 Sea Ice';
+    default:
+      return id;
+  }
+}

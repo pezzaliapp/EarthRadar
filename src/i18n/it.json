@@ -52,7 +52,9 @@
     "viirs": "VIIRS",
     "blackMarble": "Black Marble",
     "geoColor": "GOES live",
-    "osm": "OSM"
+    "osm": "OSM",
+    "gibsAttribution": "Overlay GIBS attivi",
+    "gibsOverlaysWarning": "{{count}} overlay GIBS attivi: più tile da scaricare ad ogni pan."
   },
   "quakes": {
     "title": "Terremoti USGS",
@@ -354,7 +356,7 @@
     "sourcesTitle": "Fonti dati",
     "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · OpenSky Network · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
   },
-  "radar": {
+  "radarMode": {
     "title": "Radar Mode",
     "subtitle": "Tributo al canvas verde fosforo del progetto originale",
     "placeholder": "Sezione opzionale. Verrà attivata in Fase 5 dopo che il resto è stabile."
