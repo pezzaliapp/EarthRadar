@@ -86,6 +86,15 @@ interface LayersState {
   /** Opacità tile radar precipitazioni 0..1 (default 0.7). */
   rainRadarOpacity: number;
 
+  /** Categorie EONET attive (string id). Vuoto = tutte le categorie. */
+  eonetActiveCategories: string[];
+  /** Range di giorni per il filtro EONET (1..30). */
+  eonetDaysRange: number;
+  /** ID dell'evento EONET selezionato per il pannello dettaglio. */
+  eonetSelectedEventId: string | null;
+  /** Mostra solo eventi aperti (`open`) o anche chiusi (`all`). */
+  eonetStatus: 'open' | 'all';
+
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
   /** Mostra/nasconde un overlay. */
@@ -115,6 +124,14 @@ interface LayersState {
   setRainRadarFrameIndex: (i: number) => void;
   setRainRadarPlaying: (v: boolean) => void;
   setRainRadarOpacity: (v: number) => void;
+
+  /** Setter per le categorie EONET. Vuoto = "tutte". */
+  setEonetActiveCategories: (ids: string[]) => void;
+  toggleEonetCategory: (id: string) => void;
+  /** Range di giorni 1..30 (clampato). */
+  setEonetDaysRange: (days: number) => void;
+  setEonetSelectedEventId: (id: string | null) => void;
+  setEonetStatus: (s: 'open' | 'all') => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -167,6 +184,10 @@ export const useLayersStore = create<LayersState>()(
       rainRadarFrameIndex: 0,
       rainRadarPlaying: false,
       rainRadarOpacity: 0.7,
+      eonetActiveCategories: [],
+      eonetDaysRange: 30,
+      eonetSelectedEventId: null,
+      eonetStatus: 'open',
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -211,10 +232,22 @@ export const useLayersStore = create<LayersState>()(
       setRainRadarPlaying: (rainRadarPlaying) => set({ rainRadarPlaying }),
       setRainRadarOpacity: (rainRadarOpacity) =>
         set({ rainRadarOpacity: clamp01(rainRadarOpacity) }),
+      setEonetActiveCategories: (eonetActiveCategories) =>
+        set({ eonetActiveCategories: [...new Set(eonetActiveCategories)] }),
+      toggleEonetCategory: (id) =>
+        set((s) => ({
+          eonetActiveCategories: s.eonetActiveCategories.includes(id)
+            ? s.eonetActiveCategories.filter((c) => c !== id)
+            : [...s.eonetActiveCategories, id],
+        })),
+      setEonetDaysRange: (eonetDaysRange) =>
+        set({ eonetDaysRange: Math.max(1, Math.min(30, Math.round(eonetDaysRange))) }),
+      setEonetSelectedEventId: (eonetSelectedEventId) => set({ eonetSelectedEventId }),
+      setEonetStatus: (eonetStatus) => set({ eonetStatus }),
     }),
     {
       name: 'earthradar:layers',
-      version: 4,
+      version: 5,
       partialize: (s) => ({
         baseLayer: s.baseLayer,
         overlays: s.overlays,
@@ -223,6 +256,9 @@ export const useLayersStore = create<LayersState>()(
         aircraftShowVelocityVectors: s.aircraftShowVelocityVectors,
         weatherGridStepKm: s.weatherGridStepKm,
         rainRadarOpacity: s.rainRadarOpacity,
+        eonetActiveCategories: s.eonetActiveCategories,
+        eonetDaysRange: s.eonetDaysRange,
+        eonetStatus: s.eonetStatus,
       }),
       // Merge per non perdere nuovi layer aggiunti in versioni successive del codice.
       merge: (persisted, current) => {
@@ -237,6 +273,9 @@ export const useLayersStore = create<LayersState>()(
             p.aircraftShowVelocityVectors ?? current.aircraftShowVelocityVectors,
           weatherGridStepKm: p.weatherGridStepKm ?? current.weatherGridStepKm,
           rainRadarOpacity: p.rainRadarOpacity ?? current.rainRadarOpacity,
+          eonetActiveCategories: p.eonetActiveCategories ?? current.eonetActiveCategories,
+          eonetDaysRange: p.eonetDaysRange ?? current.eonetDaysRange,
+          eonetStatus: p.eonetStatus ?? current.eonetStatus,
         };
       },
     },
