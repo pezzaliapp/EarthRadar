@@ -198,6 +198,16 @@ export default defineConfig({
       'leaflet',
       'zustand',
       'zustand/middleware',
+      // frame-ticker@1.0.3 è un bundle UMD legacy senza `module`/`exports`/
+      // `type:module` nel suo package.json. È l'unica dep di three-globe a
+      // non essere ESM nativa. Quando three-globe (excluded) la importa,
+      // Vite la carica raw come ESM e fallisce con
+      //   "does not provide an export named 'default'"
+      // Il fix è forzarne il pre-bundle: Vite la trasforma in ESM con
+      // default export interop. Lo facciamo qui (non in `exclude`) perché
+      // frame-ticker è una piccola lib utility, non parte del bundle 3D
+      // pesante che vogliamo isolare.
+      'frame-ticker',
     ],
     // Le dep 3D restano fuori dal pre-bundle: vengono caricate solo dai chunk
     // lazy della Fase 3 (Globe3D) e non devono toccare l'entry della Home.
