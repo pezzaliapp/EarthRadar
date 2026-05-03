@@ -83,6 +83,8 @@ export default function LayerPanel({ className = '' }: Props) {
         />
         <SatellitesRow />
         <AircraftRow />
+        <WeatherRow />
+        <RainRadarRow />
         <ToggleRow
           id="terminator"
           label={`🌑 ${t('layers.terminator')}`}
@@ -240,6 +242,88 @@ function AircraftRow() {
             <span>{t('aircraft.showVectors')}</span>
           </label>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Riga "Meteo Open-Meteo" con slider distanza celle (20..500 km). */
+function WeatherRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const setOpacity = useLayersStore((s) => s.setOpacity);
+  const stepKm = useLayersStore((s) => s.weatherGridStepKm);
+  const setStepKm = useLayersStore((s) => s.setWeatherGridStepKm);
+  const enabled = overlays.weather?.enabled ?? false;
+  const opacity = overlays.weather?.opacity ?? 1;
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('weather', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">🌦️ {t('weather.title')}</span>
+        <span className="text-[10px] font-mono text-space-300">{Math.round(opacity * 100)}%</span>
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={opacity}
+        onChange={(e) => setOpacity('weather', Number(e.target.value))}
+        className="mt-2 w-full accent-magenta-glow disabled:opacity-40"
+        disabled={!enabled}
+        aria-label="Weather opacity"
+      />
+      {enabled && (
+        <div className="mt-2 space-y-1.5 pl-6">
+          <label className="flex items-center gap-2 text-[11px] text-space-200">
+            <span className="flex-shrink-0">{t('weather.stepKm')}</span>
+            <input
+              type="range"
+              min={20}
+              max={500}
+              step={10}
+              value={stepKm}
+              onChange={(e) => setStepKm(Number(e.target.value))}
+              className="flex-1 accent-cyan-glow"
+              aria-label="Grid step km"
+            />
+            <span className="w-12 text-right font-mono text-[10px] text-space-300">{stepKm} km</span>
+          </label>
+          <p className="text-[10px] text-space-300">{t('weather.attribution')}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Riga "Radar precipitazioni" — i controlli timeline vivono sopra la mappa. */
+function RainRadarRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const enabled = overlays.rainviewer?.enabled ?? false;
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('rainviewer', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">🌧️ {t('radar.title')}</span>
+      </label>
+      {enabled && (
+        <p className="mt-1 pl-6 text-[10px] text-space-300">
+          {t('radar.subtitle')} · {t('radar.attribution')}
+        </p>
       )}
     </div>
   );

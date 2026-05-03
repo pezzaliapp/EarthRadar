@@ -1,9 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { MapContainer, ZoomControl, useMap } from 'react-leaflet';
+import { MapContainer, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import SatelliteTileLayer from './SatelliteTileLayer';
 import TerminatorOverlay from '@/components/overlays/TerminatorOverlay';
+import { useLayersStore } from '@/store/layersStore';
 
 interface Props {
   /** Centro iniziale [lat, lon]. Default Reggio Emilia (omaggio al progetto originale). */
@@ -18,11 +19,26 @@ interface Props {
 
 function MapRefBridge({ mapRef }: { mapRef?: React.MutableRefObject<L.Map | null> }) {
   const map = useMap();
+  const setMapCenter = useLayersStore((s) => s.setMapCenter);
   useEffect(() => {
     if (mapRef) mapRef.current = map;
     // Forza un invalidateSize all'inizio: utile dentro layout flex/grid.
     setTimeout(() => map.invalidateSize(), 50);
-  }, [map, mapRef]);
+    // Inizializza il centro nello store al mount.
+    const c = map.getCenter();
+    setMapCenter([c.lat, c.lng]);
+  }, [map, mapRef, setMapCenter]);
+  // Aggiorna lo store ad ogni moveend / zoomend.
+  useMapEvents({
+    moveend: () => {
+      const c = map.getCenter();
+      setMapCenter([c.lat, c.lng]);
+    },
+    zoomend: () => {
+      const c = map.getCenter();
+      setMapCenter([c.lat, c.lng]);
+    },
+  });
   return null;
 }
 

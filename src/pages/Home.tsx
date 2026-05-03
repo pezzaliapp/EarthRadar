@@ -20,6 +20,11 @@ const SatelliteDetailPanel = lazy(() => import('@/components/panels/SatelliteDet
 // Aerei: stesso pattern (chunk OpenSky a parte).
 const AircraftLayer = lazy(() => import('@/components/overlays/AircraftLayer'));
 const AircraftDetailPanel = lazy(() => import('@/components/panels/AircraftDetailPanel'));
+// Meteo + Radar: chunk indipendenti, caricati al toggle.
+const WeatherLayer = lazy(() => import('@/components/overlays/WeatherLayer'));
+const WeatherDetailPanel = lazy(() => import('@/components/panels/WeatherDetailPanel'));
+const RainRadarLayer = lazy(() => import('@/components/overlays/RainRadarLayer'));
+const RainRadarControls = lazy(() => import('@/components/panels/RainRadarControls'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -44,6 +49,9 @@ export default function Home() {
   const selectedSat = useLayersStore((s) => s.selectedSatellite);
   const aircraftEnabled = useLayersStore((s) => s.overlays.aircraft?.enabled ?? false);
   const selectedAircraft = useLayersStore((s) => s.selectedAircraft);
+  const weatherEnabled = useLayersStore((s) => s.overlays.weather?.enabled ?? false);
+  const selectedWeather = useLayersStore((s) => s.selectedWeatherCell);
+  const radarEnabled = useLayersStore((s) => s.overlays.rainviewer?.enabled ?? false);
 
   const aircraft = useAircraft(aircraftEnabled);
 
@@ -93,7 +101,22 @@ export default function Home() {
                   <AircraftLayer />
                 </Suspense>
               )}
+              {weatherEnabled && (
+                <Suspense fallback={null}>
+                  <WeatherLayer />
+                </Suspense>
+              )}
+              {radarEnabled && (
+                <Suspense fallback={null}>
+                  <RainRadarLayer />
+                </Suspense>
+              )}
             </Map2D>
+            {radarEnabled && (
+              <Suspense fallback={null}>
+                <RainRadarControls />
+              </Suspense>
+            )}
             <button
               type="button"
               className="absolute right-3 top-3 z-[400] inline-flex items-center gap-1 rounded-lg border border-cyan-glow/40 bg-space-900/80 px-2 py-1 text-[11px] font-mono uppercase tracking-wider text-cyan-glow shadow-glow backdrop-blur-md lg:hidden"
@@ -150,6 +173,11 @@ export default function Home() {
           {selectedAircraft && (
             <Suspense fallback={null}>
               <AircraftDetailPanel />
+            </Suspense>
+          )}
+          {selectedWeather && weatherEnabled && (
+            <Suspense fallback={null}>
+              <WeatherDetailPanel />
             </Suspense>
           )}
           <LayerPanel />
