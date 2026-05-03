@@ -28,6 +28,10 @@ const RainRadarControls = lazy(() => import('@/components/panels/RainRadarContro
 // EONET: chunk separato (parser + categorie + dettaglio), caricato solo al toggle.
 const EonetLayer = lazy(() => import('@/components/overlays/EonetLayer'));
 const EonetDetailPanel = lazy(() => import('@/components/panels/EonetDetailPanel'));
+// ISS: chunk dedicato (live + pass predictor + ICS export). Layer e panel
+// montati solo quando il layer ISS è attivo.
+const IssLayer = lazy(() => import('@/components/overlays/IssLayer'));
+const IssPanel = lazy(() => import('@/components/panels/IssPanel'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -57,6 +61,7 @@ export default function Home() {
   const radarEnabled = useLayersStore((s) => s.overlays.rainviewer?.enabled ?? false);
   const eonetEnabled = useLayersStore((s) => s.overlays.eonet?.enabled ?? false);
   const eonetSelectedId = useLayersStore((s) => s.eonetSelectedEventId);
+  const issEnabled = useLayersStore((s) => s.overlays.iss?.enabled ?? false);
 
   const aircraft = useAircraft(aircraftEnabled);
 
@@ -119,6 +124,11 @@ export default function Home() {
               {eonetEnabled && (
                 <Suspense fallback={null}>
                   <EonetLayer />
+                </Suspense>
+              )}
+              {issEnabled && (
+                <Suspense fallback={null}>
+                  <IssLayer />
                 </Suspense>
               )}
             </Map2D>
@@ -193,6 +203,11 @@ export default function Home() {
           {eonetSelectedId && eonetEnabled && (
             <Suspense fallback={null}>
               <EonetDetailPanel />
+            </Suspense>
+          )}
+          {issEnabled && (
+            <Suspense fallback={null}>
+              <IssPanel />
             </Suspense>
           )}
           <LayerPanel />

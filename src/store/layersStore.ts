@@ -95,6 +95,14 @@ interface LayersState {
   /** Mostra solo eventi aperti (`open`) o anche chiusi (`all`). */
   eonetStatus: 'open' | 'all';
 
+  /** Mostra il ground track ±45 min sull'overlay ISS dedicato. */
+  issShowGroundTrack: boolean;
+  /**
+   * Posizione utente per il pass predictor. Null = usa il centro mappa.
+   * Opt-in: l'utente può cliccare "usa la mia posizione" per geolocate.
+   */
+  userLocationForPasses: { lat: number; lon: number } | null;
+
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
   /** Mostra/nasconde un overlay. */
@@ -132,6 +140,9 @@ interface LayersState {
   setEonetDaysRange: (days: number) => void;
   setEonetSelectedEventId: (id: string | null) => void;
   setEonetStatus: (s: 'open' | 'all') => void;
+
+  setIssShowGroundTrack: (v: boolean) => void;
+  setUserLocationForPasses: (loc: { lat: number; lon: number } | null) => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -188,6 +199,8 @@ export const useLayersStore = create<LayersState>()(
       eonetDaysRange: 30,
       eonetSelectedEventId: null,
       eonetStatus: 'open',
+      issShowGroundTrack: true,
+      userLocationForPasses: null,
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -244,10 +257,12 @@ export const useLayersStore = create<LayersState>()(
         set({ eonetDaysRange: Math.max(1, Math.min(30, Math.round(eonetDaysRange))) }),
       setEonetSelectedEventId: (eonetSelectedEventId) => set({ eonetSelectedEventId }),
       setEonetStatus: (eonetStatus) => set({ eonetStatus }),
+      setIssShowGroundTrack: (issShowGroundTrack) => set({ issShowGroundTrack }),
+      setUserLocationForPasses: (userLocationForPasses) => set({ userLocationForPasses }),
     }),
     {
       name: 'earthradar:layers',
-      version: 5,
+      version: 6,
       partialize: (s) => ({
         baseLayer: s.baseLayer,
         overlays: s.overlays,
@@ -259,6 +274,8 @@ export const useLayersStore = create<LayersState>()(
         eonetActiveCategories: s.eonetActiveCategories,
         eonetDaysRange: s.eonetDaysRange,
         eonetStatus: s.eonetStatus,
+        issShowGroundTrack: s.issShowGroundTrack,
+        userLocationForPasses: s.userLocationForPasses,
       }),
       // Merge per non perdere nuovi layer aggiunti in versioni successive del codice.
       merge: (persisted, current) => {
@@ -276,6 +293,8 @@ export const useLayersStore = create<LayersState>()(
           eonetActiveCategories: p.eonetActiveCategories ?? current.eonetActiveCategories,
           eonetDaysRange: p.eonetDaysRange ?? current.eonetDaysRange,
           eonetStatus: p.eonetStatus ?? current.eonetStatus,
+          issShowGroundTrack: p.issShowGroundTrack ?? current.issShowGroundTrack,
+          userLocationForPasses: p.userLocationForPasses ?? current.userLocationForPasses,
         };
       },
     },
