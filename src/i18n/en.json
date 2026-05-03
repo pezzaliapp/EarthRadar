@@ -356,7 +356,7 @@
     "sourcesTitle": "Data sources",
     "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · OpenSky Network · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
   },
-  "radar": {
+  "radarMode": {
     "title": "Radar Mode",
     "subtitle": "Tribute to the original phosphor-green canvas",
     "placeholder": "Optional section. To be enabled in Phase 5 once the rest is stable."
