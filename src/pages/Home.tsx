@@ -37,6 +37,10 @@ const IssPanel = lazy(() => import('@/components/panels/IssPanel'));
 const FireLayer = lazy(() => import('@/components/overlays/FireLayer'));
 const GibsFiresOverlay = lazy(() => import('@/components/overlays/GibsFiresOverlay'));
 const FireDetailPanel = lazy(() => import('@/components/panels/FireDetailPanel'));
+// Lightning: chunk dedicato (TileLayer climatologia LIS in v1.0, predisposto
+// per WS Blitzortung in v1.1).
+const LightningLayer = lazy(() => import('@/components/overlays/LightningLayer'));
+const LightningDetailPanel = lazy(() => import('@/components/panels/LightningDetailPanel'));
 
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
@@ -69,6 +73,7 @@ export default function Home() {
   const issEnabled = useLayersStore((s) => s.overlays.iss?.enabled ?? false);
   const firmsEnabled = useLayersStore((s) => s.overlays.firms?.enabled ?? false);
   const selectedFireId = useLayersStore((s) => s.selectedFireId);
+  const lightningEnabled = useLayersStore((s) => s.overlays.lightning?.enabled ?? false);
 
   const aircraft = useAircraft(aircraftEnabled);
 
@@ -146,6 +151,11 @@ export default function Home() {
               {firmsEnabled && (
                 <Suspense fallback={null}>
                   <GibsFiresOverlay />
+                </Suspense>
+              )}
+              {lightningEnabled && (
+                <Suspense fallback={null}>
+                  <LightningLayer />
                 </Suspense>
               )}
             </Map2D>
@@ -230,6 +240,11 @@ export default function Home() {
           {firmsEnabled && selectedFireId && (
             <Suspense fallback={null}>
               <FireDetailPanel />
+            </Suspense>
+          )}
+          {lightningEnabled && (
+            <Suspense fallback={null}>
+              <LightningDetailPanel />
             </Suspense>
           )}
           <LayerPanel />

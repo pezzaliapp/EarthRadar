@@ -96,3 +96,45 @@ describe('translate(): radarMode tribute namespace', () => {
     });
   }
 });
+
+describe('translate(): lightning namespace (Fase 2.8)', () => {
+  // Chiavi usate da LightningRow + LightningDetailPanel.
+  const REQUIRED = [
+    'lightning.title',
+    'lightning.subtitle',
+    'lightning.mvpBanner',
+    'lightning.detailTitle',
+    'lightning.detailIntro',
+    'lightning.detailBullet1',
+    'lightning.detailBullet2',
+    'lightning.detailBullet3',
+    'lightning.attribution',
+  ];
+
+  for (const lang of ['it', 'en'] as const) {
+    for (const key of REQUIRED) {
+      it(`${lang}: ${key} resolves to a non-key string`, () => {
+        const v = translate(lang, key);
+        expect(v).not.toBe(key);
+        expect(typeof v).toBe('string');
+        expect(v.length).toBeGreaterThan(0);
+      });
+    }
+  }
+
+  it('IT mvpBanner mentions Blitzortung (v1.1 promise)', () => {
+    expect(translate('it', 'lightning.mvpBanner')).toMatch(/Blitzortung/i);
+  });
+
+  it('EN mvpBanner mentions Blitzortung', () => {
+    expect(translate('en', 'lightning.mvpBanner')).toMatch(/Blitzortung/i);
+  });
+
+  it('attribution mentions LIS and TRMM in both languages', () => {
+    for (const lang of ['it', 'en'] as const) {
+      const v = translate(lang, 'lightning.attribution');
+      expect(v).toMatch(/LIS/);
+      expect(v).toMatch(/TRMM/);
+    }
+  });
+});

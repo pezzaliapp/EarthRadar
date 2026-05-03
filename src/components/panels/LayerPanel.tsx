@@ -95,6 +95,7 @@ export default function LayerPanel({ className = '' }: Props) {
         <RainRadarRow />
         <EonetRow />
         <FiresRow />
+        <LightningRow />
         <ToggleRow
           id="terminator"
           label={`🌑 ${t('layers.terminator')}`}
@@ -558,6 +559,59 @@ function FiresRow() {
           )}
 
           <p className="text-[10px] text-space-300">{t('fires.attribution')}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Riga "Fulmini" — MVP statico v1.0.
+ *
+ * Decisione architetturale: lightning vive come *data layer* dedicato (non
+ * come overlay GIBS generico), perché in v1.1 il componente si dovrà
+ * occupare anche degli strike live via WS Blitzortung — quindi UN
+ * componente, non un tile-only via GibsOverlayHost.
+ *
+ * Banner inline tradotto IT/EN per chiarire all'utente la natura statica
+ * del prodotto in questa release.
+ */
+function LightningRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const setOpacity = useLayersStore((s) => s.setOpacity);
+  const enabled = overlays.lightning?.enabled ?? false;
+  const opacity = overlays.lightning?.opacity ?? 0.7;
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('lightning', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">⚡ {t('lightning.title')}</span>
+        <span className="text-[10px] font-mono text-space-300">{Math.round(opacity * 100)}%</span>
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={opacity}
+        onChange={(e) => setOpacity('lightning', Number(e.target.value))}
+        className="mt-2 w-full accent-magenta-glow disabled:opacity-40"
+        disabled={!enabled}
+        aria-label="Lightning opacity"
+      />
+      {enabled && (
+        <div className="mt-2 space-y-1.5 pl-6">
+          <p className="rounded-md border border-cyan-glow/30 bg-cyan-glow/5 px-2 py-1 text-[11px] leading-snug text-cyan-glow">
+            ⚡ {t('lightning.mvpBanner')}
+          </p>
+          <p className="text-[10px] text-space-300">{t('lightning.attribution')}.</p>
         </div>
       )}
     </div>
