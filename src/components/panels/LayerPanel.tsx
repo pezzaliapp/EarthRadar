@@ -82,6 +82,7 @@ export default function LayerPanel({ className = '' }: Props) {
           onOpacity={(v) => setOpacity('quakes', v)}
         />
         <SatellitesRow />
+        <AircraftRow />
         <ToggleRow
           id="terminator"
           label={`🌑 ${t('layers.terminator')}`}
@@ -175,6 +176,69 @@ function SatellitesRow() {
               );
             })}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Riga "Aerei" con sotto-toggles per a-terra e vettori velocità.
+ */
+function AircraftRow() {
+  const { t } = useTranslation();
+  const overlays = useLayersStore((s) => s.overlays);
+  const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
+  const setOpacity = useLayersStore((s) => s.setOpacity);
+  const showOnGround = useLayersStore((s) => s.aircraftShowOnGround);
+  const showVectors = useLayersStore((s) => s.aircraftShowVelocityVectors);
+  const setShowOnGround = useLayersStore((s) => s.setAircraftShowOnGround);
+  const setShowVectors = useLayersStore((s) => s.setAircraftShowVelocityVectors);
+  const enabled = overlays.aircraft?.enabled ?? false;
+  const opacity = overlays.aircraft?.opacity ?? 1;
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setOverlayEnabled('aircraft', e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">✈️ {t('aircraft.title')}</span>
+        <span className="text-[10px] font-mono text-space-300">{Math.round(opacity * 100)}%</span>
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={opacity}
+        onChange={(e) => setOpacity('aircraft', Number(e.target.value))}
+        className="mt-2 w-full accent-magenta-glow disabled:opacity-40"
+        disabled={!enabled}
+        aria-label="Aircraft opacity"
+      />
+      {enabled && (
+        <div className="mt-2 space-y-1.5 pl-6">
+          <label className="flex cursor-pointer items-center gap-2 text-[11px] text-space-200">
+            <input
+              type="checkbox"
+              checked={showOnGround}
+              onChange={(e) => setShowOnGround(e.target.checked)}
+              className="h-3.5 w-3.5 accent-cyan-glow"
+            />
+            <span>{t('aircraft.showOnGround')}</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-[11px] text-space-200">
+            <input
+              type="checkbox"
+              checked={showVectors}
+              onChange={(e) => setShowVectors(e.target.checked)}
+              className="h-3.5 w-3.5 accent-cyan-glow"
+            />
+            <span>{t('aircraft.showVectors')}</span>
+          </label>
         </div>
       )}
     </div>

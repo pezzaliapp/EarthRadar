@@ -43,6 +43,12 @@ export interface SelectedSatellite {
   name: string;
 }
 
+/** Identificazione dell'aereo selezionato (per il pannello dettaglio). */
+export interface SelectedAircraft {
+  icao24: string;
+  callsign: string;
+}
+
 interface LayersState {
   /** Layer base mappa attivo (esattamente uno). */
   baseLayer: LayerId;
@@ -52,6 +58,13 @@ interface LayersState {
   satelliteGroups: CelestrakGroup[];
   /** Satellite selezionato per il pannello dettaglio. */
   selectedSatellite: SelectedSatellite | null;
+
+  /** Mostra anche gli aerei a terra (default false). */
+  aircraftShowOnGround: boolean;
+  /** Mostra il vettore velocità (proiezione 30 s). */
+  aircraftShowVelocityVectors: boolean;
+  /** Aereo selezionato per il pannello dettaglio. */
+  selectedAircraft: SelectedAircraft | null;
 
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
@@ -68,6 +81,12 @@ interface LayersState {
   setSatelliteGroups: (groups: CelestrakGroup[]) => void;
   /** Seleziona / deseleziona il satellite mostrato nel pannello dettaglio. */
   setSelectedSatellite: (sel: SelectedSatellite | null) => void;
+
+  /** Toggles per la sezione aerei. */
+  setAircraftShowOnGround: (v: boolean) => void;
+  setAircraftShowVelocityVectors: (v: boolean) => void;
+  /** Seleziona / deseleziona l'aereo mostrato nel pannello dettaglio. */
+  setSelectedAircraft: (sel: SelectedAircraft | null) => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -111,6 +130,9 @@ export const useLayersStore = create<LayersState>()(
       overlays: DEFAULT_OVERLAYS,
       satelliteGroups: [...DEFAULT_GROUPS],
       selectedSatellite: null,
+      aircraftShowOnGround: false,
+      aircraftShowVelocityVectors: true,
+      selectedAircraft: null,
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -142,14 +164,20 @@ export const useLayersStore = create<LayersState>()(
         })),
       setSatelliteGroups: (groups) => set({ satelliteGroups: [...groups] }),
       setSelectedSatellite: (selectedSatellite) => set({ selectedSatellite }),
+      setAircraftShowOnGround: (aircraftShowOnGround) => set({ aircraftShowOnGround }),
+      setAircraftShowVelocityVectors: (aircraftShowVelocityVectors) =>
+        set({ aircraftShowVelocityVectors }),
+      setSelectedAircraft: (selectedAircraft) => set({ selectedAircraft }),
     }),
     {
       name: 'earthradar:layers',
-      version: 2,
+      version: 3,
       partialize: (s) => ({
         baseLayer: s.baseLayer,
         overlays: s.overlays,
         satelliteGroups: s.satelliteGroups,
+        aircraftShowOnGround: s.aircraftShowOnGround,
+        aircraftShowVelocityVectors: s.aircraftShowVelocityVectors,
       }),
       // Merge per non perdere nuovi layer aggiunti in versioni successive del codice.
       merge: (persisted, current) => {
@@ -159,6 +187,9 @@ export const useLayersStore = create<LayersState>()(
           baseLayer: p.baseLayer ?? current.baseLayer,
           overlays: { ...current.overlays, ...(p.overlays ?? {}) },
           satelliteGroups: p.satelliteGroups ?? current.satelliteGroups,
+          aircraftShowOnGround: p.aircraftShowOnGround ?? current.aircraftShowOnGround,
+          aircraftShowVelocityVectors:
+            p.aircraftShowVelocityVectors ?? current.aircraftShowVelocityVectors,
         };
       },
     },
