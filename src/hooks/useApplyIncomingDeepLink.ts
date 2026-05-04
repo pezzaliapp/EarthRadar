@@ -72,6 +72,5 @@ export function useApplyIncomingDeepLink(): void {
       window.history.replaceState(null, '', url.toString());
     }
     // Gli store sono singoton: leggiamo getState() in mount, niente deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

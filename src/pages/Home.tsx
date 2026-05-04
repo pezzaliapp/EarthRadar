@@ -11,6 +11,7 @@ import ShareButton from '@/components/common/ShareButton';
 import { useQuakes } from '@/hooks/useQuakes';
 import { useAircraft } from '@/hooks/useAircraft';
 import { useApplyIncomingDeepLink } from '@/hooks/useApplyIncomingDeepLink';
+import { useNotificationsRunner } from '@/hooks/useNotifications';
 import { remainingCooldownMs } from '@/services/openSkyRateLimit';
 import { useLayersStore } from '@/store/layersStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -59,6 +60,10 @@ export default function Home() {
   // volta al mount e ripulisce la query string. Da MeteorWatch / CubeSat /
   // self-share. Vedi src/lib/deepLinkBuilder.ts per gli schemi.
   useApplyIncomingDeepLink();
+  // Runner notifiche opt-in: se attivo, monitora quakes M≥5 vicini + prossimi
+  // pass ISS visibili e dispara `Notification`. Cooldown 30 min per categoria.
+  // Il toggle UI vive nell'Header tramite `useNotificationsControls()` (light).
+  useNotificationsRunner();
   const mapRef = useRef<L.Map | null>(null);
   const [center, setCenter] = useState<[number, number]>(INITIAL_CENTER);
   const [selectedId, setSelectedId] = useState<string | null>(null);
