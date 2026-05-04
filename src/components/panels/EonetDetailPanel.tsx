@@ -186,7 +186,7 @@ export default function EonetDetailPanel() {
             const lon = lastPoint && lastPoint.type === 'Point' ? lastPoint.coordinates[0] : 0;
             return {
               title: `EarthRadar — ${event.title}`,
-              text: cat.label.it,
+              text: `${cat.emoji} ${event.categories[0]?.title ?? cat.id}`,
               url: buildShareUrl({
                 lat,
                 lon,

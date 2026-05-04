@@ -40,9 +40,10 @@ function pass(over: Partial<Pass>): Pass {
     visible: over.visible ?? true,
     magnitude: -3,
     peak: {
-      time: start + 3 * 60 * 1000,
+      t: start + 3 * 60 * 1000,
       elevationDeg: 45,
       azimuthDeg: 180,
+      satAltKm: 420,
       rangeKm: 500,
       sunAltDeg: -10,
       satSunlit: true,

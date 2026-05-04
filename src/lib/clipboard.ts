@@ -18,14 +18,14 @@ export interface SharePayload {
 
 export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed';
 
-interface ShareCapableNavigator extends Navigator {
+interface ShareCapableNavigator {
   share?: (data: ShareData) => Promise<void>;
   canShare?: (data: ShareData) => boolean;
 }
 
 export async function tryNativeShare(payload: SharePayload): Promise<ShareResult | null> {
   if (typeof navigator === 'undefined') return null;
-  const nav = navigator as ShareCapableNavigator;
+  const nav = navigator as unknown as ShareCapableNavigator;
   if (!nav.share) return null;
   // Se canShare è esposto, rispettalo: alcune piattaforme lanciano se la
   // shape è richiesta (es. file). Per testo + url va sempre bene.
