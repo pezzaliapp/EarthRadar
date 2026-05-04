@@ -3,31 +3,37 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * Difesa contro il bug di hotfix `fix/frame-ticker-compat`:
+ * Difesa strutturale contro il pattern di rottura CJS/UMD legacy nella
+ * catena di dep 3D di react-globe.gl. Documentato nell'hotfix
+ * `fix/frame-ticker-compat` (PR #13).
  *
- *   The requested module '/EarthRadar/node_modules/frame-ticker/dist/
- *   FrameTicker.js' does not provide an export named 'default'
+ * Errore tipico osservato in dev:
  *
- * Cause root
- * - `frame-ticker@1.0.3` è un bundle UMD legacy (`module.exports=...`),
- *   `package.json` ha `main` ma NON `module`/`exports`/`type:module`.
- *   È l'unica delle 8 dep di three-globe a non essere ESM nativa.
- * - I suoi consumer (react-globe.gl / globe.gl / three-globe) sono in
- *   `optimizeDeps.exclude` (hotfix #6 per il dedupe React).
- * - Vite quindi non pre-bundla nemmeno le sub-dep dei consumer excluded
- *   → frame-ticker viene caricato raw come ESM nativo → l'import
- *   `import _FT from 'frame-ticker'` dentro three-globe.mjs fallisce.
+ *   The requested module '/EarthRadar/node_modules/<pkg>/...' does
+ *   not provide an export named 'default'
  *
- * Fix: includere `frame-ticker` in `optimizeDeps.include` per forzarne il
- * pre-bundle in dev. Vite lo trasforma in ESM con default export interop.
+ * Cause root del pattern
+ * - I consumer ESM react-globe.gl / globe.gl / three-globe / frame-ticker
+ *   sono in `optimizeDeps.exclude` (hotfix #6 per il dedupe React +
+ *   isolamento del bundle 3D pesante).
+ * - Vite NON pre-bundla nemmeno le sub-dep dei consumer excluded.
+ * - Quando una sub-dep è UMD legacy (solo `main`, niente `module`/
+ *   `exports`/`type:"module"` nel package.json) viene servita raw come
+ *   ESM nativo e gli `import default` falliscono.
  *
- * Strategia di difesa
- * 1. Smoke test: `import('./Globe3D')` deve risolvere. In vitest la pipeline
- *    è leggermente diversa dal dev server, ma è comunque utile per
- *    intercettare future rotture dell'import chain.
- * 2. Sentinella su `vite.config.ts`: se qualcuno rimuove `frame-ticker` da
- *    `optimizeDeps.include`, questo test fallisce con un messaggio chiaro
- *    che linka all'incidente di hotfix.
+ * Soluzione
+ * - Pre-bundle forzato di TUTTI i CJS legacy della catena via
+ *   `optimizeDeps.include`. Lista derivata da uno scan ad-hoc dei
+ *   package.json transitivi.
+ *
+ * Strategia di difesa di questo file
+ * 1. Smoke test: `import('./Globe3D')` deve risolvere. La pipeline vitest
+ *    è leggermente diversa dal dev server (transformer JS-DOM vs Vite
+ *    middleware) ma intercetta comunque rotture grossolane dell'import
+ *    chain.
+ * 2. Sentinella su `vite.config.ts`: ognuno dei moduli noti DEVE comparire
+ *    in `optimizeDeps.include`. Se qualcuno li rimuove pensando che siano
+ *    "dead config", il test fallisce con messaggio che linka all'hotfix.
  */
 describe('Globe3D module', () => {
   it('imports cleanly with a default export', async () => {
@@ -37,18 +43,45 @@ describe('Globe3D module', () => {
   });
 });
 
-describe('vite.config.ts pre-bundle sentinel', () => {
-  it('keeps frame-ticker inside optimizeDeps.include (regression: UMD interop)', () => {
-    const config = readFileSync(
-      join(__dirname, '..', '..', '..', 'vite.config.ts'),
-      'utf-8',
-    );
-    // Cerchiamo la entry nel blocco optimizeDeps.include. Il match è generoso
-    // (può essere dentro o fuori da virgolette doppie): se il file viene
-    // riformattato, basta che la stringa esista.
-    expect(
-      config.includes("'frame-ticker'") || config.includes('"frame-ticker"'),
-      "frame-ticker MUST be listed in optimizeDeps.include — see hotfix fix/frame-ticker-compat",
-    ).toBe(true);
+describe('vite.config.ts pre-bundle sentinel — CJS/UMD legacy 3D chain', () => {
+  // Ognuno di questi pacchetti è un CJS legacy nella catena di dep di
+  // react-globe.gl (vedi `node /tmp/scan-cjs.mjs` o ripeti lo scan
+  // controllando i package.json delle sub-dep di three-globe). Devono
+  // essere forzati in `optimizeDeps.include` o il dev server cracka su
+  // import default.
+  const REQUIRED_INCLUDES = [
+    // Confermati come runtime imports da consumer excluded:
+    'frame-ticker', // three-globe.mjs `import _FT from 'frame-ticker'`
+    'prop-types', // react-globe.gl.mjs:3 `import PropTypes from 'prop-types'`
+    // Transitive: pre-bundlati indirettamente dai sopra, ma li elenchiamo
+    // per difesa contro futuri re-bundle dei consumer principali.
+    'react-is',
+    'simplesignal',
+  ];
+
+  const config = readFileSync(
+    join(__dirname, '..', '..', '..', 'vite.config.ts'),
+    'utf-8',
+  );
+
+  for (const pkg of REQUIRED_INCLUDES) {
+    it(`keeps "${pkg}" inside optimizeDeps.include (regression: UMD interop)`, () => {
+      // Match generoso: la stringa deve comparire o tra single quote o tra
+      // double quote. Se il file viene riformattato, l'identificativo basta.
+      const present =
+        config.includes(`'${pkg}'`) || config.includes(`"${pkg}"`);
+      expect(
+        present,
+        `${pkg} MUST be listed in optimizeDeps.include — see PR #13 ` +
+          'fix/frame-ticker-compat for the structural diagnosis',
+      ).toBe(true);
+    });
+  }
+
+  it('locks the explicit esbuildOptions.mainFields order (module before main)', () => {
+    // Senza override esplicito, Vite usa già ['module', 'main', 'browser'].
+    // Lo blocchiamo qui per sopravvivere a un eventuale cambio di default
+    // upstream, perché un ordine inverso re-introdurrebbe il bug originale.
+    expect(config).toMatch(/mainFields:\s*\[\s*['"]module['"]\s*,\s*['"]main['"]/);
   });
 });

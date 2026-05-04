@@ -198,20 +198,41 @@ export default defineConfig({
       'leaflet',
       'zustand',
       'zustand/middleware',
-      // frame-ticker@1.0.3 è un bundle UMD legacy senza `module`/`exports`/
-      // `type:module` nel suo package.json. È l'unica dep di three-globe a
-      // non essere ESM nativa. Quando three-globe (excluded) la importa,
-      // Vite la carica raw come ESM e fallisce con
+      // ─── CJS/UMD legacy della catena 3D ──────────────────────────────
+      // Tutti i pacchetti qui sotto hanno solo `main` nel package.json
+      // (niente `module`/`exports`/`type:"module"`) e sono importati —
+      // direttamente o transitivamente — da consumer ESM elencati in
+      // `optimizeDeps.exclude` (react-globe.gl / three-globe / globe.gl
+      // / frame-ticker). Quando Vite NON pre-bundla l'excluded consumer,
+      // non pre-bundla nemmeno i suoi sub-deps → il file CJS viene
+      // servito raw al browser → fallisce con
       //   "does not provide an export named 'default'"
-      // Il fix è forzarne il pre-bundle: Vite la trasforma in ESM con
-      // default export interop. Lo facciamo qui (non in `exclude`) perché
-      // frame-ticker è una piccola lib utility, non parte del bundle 3D
-      // pesante che vogliamo isolare.
-      'frame-ticker',
+      //
+      // Il pattern è strutturale, non puntuale. Forzare il pre-bundle
+      // qui è l'unico fix robusto — esbuild trasforma ogni modulo in
+      // ESM con default-export interop.
+      //
+      // Lista derivata da `node /tmp/scan-cjs.mjs` (commit 321b16c+):
+      // scan delle 8 sub-dep dirette di three-globe + sub-dep di
+      // react-globe.gl, filtrate per assenza di campi ESM nel manifest.
+      //
+      // Importazioni runtime CONFERMATE:
+      'frame-ticker', // ← three-globe.mjs `import _FT from 'frame-ticker'`
+      'prop-types', // ← react-globe.gl.mjs:3 `import PropTypes from 'prop-types'`
+      // Sub-deps transitivi (pre-bundlati implicitamente dai sopra, ma
+      // elencati esplicitamente per difesa contro futuri re-bundle):
+      'react-is', // sub-dep CJS di prop-types/factoryWithTypeCheckers.js
+      'simplesignal', // sub-dep di frame-ticker (oggi bundlato dentro UMD)
     ],
     // Le dep 3D restano fuori dal pre-bundle: vengono caricate solo dai chunk
     // lazy della Fase 3 (Globe3D) e non devono toccare l'entry della Home.
     exclude: ['react-globe.gl', 'three', 'globe.gl'],
+    esbuildOptions: {
+      // Esplicita il default Vite: prima `module` (ESM), poi `main` (CJS).
+      // Non strettamente necessario oggi, ma documenta l'intento e protegge
+      // se in futuro un override del default cambiasse l'ordine.
+      mainFields: ['module', 'main'],
+    },
   },
   build: {
     sourcemap: false,
