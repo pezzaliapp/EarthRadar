@@ -10,7 +10,7 @@ export default function OnlineBadge() {
       aria-live="polite"
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-risk-low animate-pulse' : 'bg-risk-high'}`}
+        className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-risk-low animate-pulse motion-reduce:animate-none' : 'bg-risk-high'}`}
       />
       {online ? t('common.online') : t('common.offline')}
     </span>
