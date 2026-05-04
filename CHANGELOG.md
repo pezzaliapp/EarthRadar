@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] — 2026-05-04
+
+Hotfix UX: ripristina la parità di controlli fra vista 2D e vista 3D. Nessuna
+feature nuova. Pipeline verde (lint + 346 test, +3 nuovi smoke).
+
+### Fixed
+
+- **Globe3D**: il pannello Layer ora è visibile anche in vista 3D
+  (regressione introdotta in Fase 3). Causa root: `react-globe.gl` (via
+  `three-render-objects`) usa di default `window.innerWidth` /
+  `window.innerHeight` come dimensioni del canvas. Senza `width`/`height`
+  espliciti, il canvas (~1920×1080) gonfiava la min-content della grid
+  column `1fr` della Home, spingendo la colonna `LayerPanel` (320px) fuori
+  viewport. Il fix passa dimensioni reali al `<Globe>` via `ResizeObserver`
+  e indurisce la grid con `minmax(0,1fr)` + `min-w-0` sull'item.
+- **Globe3D**: lo stato dei layer attivi è preservato quando si commuta fra
+  Mappa 2D e Globo 3D (già garantito da `layersStore` con Zustand persist,
+  ora coperto da test).
+
+### Tests
+
+- 3 nuovi smoke test in `src/pages/Home.layerPanel.test.tsx`:
+  - LayersPanel presente nel DOM con `viewMode: '2d'`
+  - LayersPanel presente nel DOM con `viewMode: '3d'` (era questo il caso
+    che mancava)
+  - Toggle di un layer in 2D resta attivo dopo switch a 3D (persistenza
+    cross-view via store)
+
+---
+
 ## [1.0.1] — 2026-05-04
 
 Patch release: easter egg "Radar Mode" attivato, manutenzione CI e UX

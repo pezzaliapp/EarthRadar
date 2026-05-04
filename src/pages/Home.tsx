@@ -145,8 +145,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="flex flex-col gap-3">
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="relative" style={{ height: 'min(70vh, 560px)' }}>
             {is3D ? (
               <Suspense fallback={<div className="glass h-full w-full p-4 text-sm text-space-300">{t('home.globeLoading')}</div>}>
