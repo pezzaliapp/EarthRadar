@@ -1,52 +1,62 @@
 /**
- * Adaptive texture URL builder per il Globe3D.
+ * Texture URL builder per il Globe3D — versione locale (CORS-free).
  *
- * Decisione 6 di CLAUDE.md (chiarificazioni post-review): "Texture Blue Marble
- * adattiva: 2K per mobile, 8K per desktop, via CDN NASA Visible Earth
- * (visibleearth.nasa.gov / eoimages.gsfc.nasa.gov)".
+ * Storia
+ *  - Versione iniziale (Fase 3) puntava al CDN NASA Visible Earth
+ *    (eoimages.gsfc.nasa.gov).
+ *  - In dev sul localhost il browser blocca il fetch perché il CDN NASA
+ *    NON espone gli header `Access-Control-Allow-Origin`. THREE.TextureLoader
+ *    fa fetch + readPixels → bloccato → globo nero.
+ *  - In prod su GitHub Pages è esattamente lo stesso problema (no CORS proxy).
+ *  - Soluzione: hostare le texture in `public/textures/` e servirle dallo
+ *    stesso origin del frontend. Same-origin, niente CORS.
+ *
+ * Dimensioni e budget
+ *  - 2048×1024 equirectangular per Blue Marble + Black Marble.
+ *  - JPEG quality 80, totale ~520 KB sul disco. Più che sufficiente per il
+ *    rendering sferico a livello 1 (256² → 512² → 1024² → 2048²).
+ *  - Niente 8K: committare 30+ MB di texture nel repo è sproporzionato per
+ *    il valore aggiunto. CLAUDE.md dec. 6 ammetteva esplicitamente
+ *    "altrimenti solo 2K, è sufficiente per il MVP".
+ *  - Niente bump map: la sorgente NASA originale a cui puntava la versione
+ *    CDN non è più al path canonico (404), e non era essenziale. `bumpMap`
+ *    resta nell'interfaccia come `null` per non rompere il consumer.
+ *
+ * URL
+ *  - In dev: `/textures/earth-blue-marble-2k.jpg` (Vite serve da `public/`)
+ *  - In prod: `/EarthRadar/textures/earth-blue-marble-2k.jpg` (base prefix
+ *    risolto da `import.meta.env.BASE_URL`).
  *
  * Detection
  *  - mobile heuristic: matchMedia('(max-width: 768px)') OR
  *    navigator.deviceMemory < 4 (Chrome/Edge property, undefined su Safari →
- *    consideriamo "non low-mem" e affidiamo all'altro check)
- *  - se siamo in tile size mobile, usiamo 2K. Altrimenti 8K.
- *
- * URL canonici da NASA Visible Earth (Blue Marble Next Generation 2004
- * + Black Marble 2016):
- *  - Blue Marble 2K: world.topo.200412.3x5400x2700.jpg (5400×2700)
- *  - Blue Marble 8K: world.topo.200412.3x21600x10800.jpg (21600×10800)
- *  - Black Marble 2K: BlackMarble_2016_3km_geo.jpg
- *  - Black Marble 8K: BlackMarble_2016_01deg_geo.jpg
+ *    consideriamo "non low-mem" e affidiamo all'altro check).
+ *  - `isLowEnd` resta esposto come flag per il chiamante: oggi non cambia
+ *    la texture set (le abbiamo entrambe a 2K), ma il consumer Globe3D
+ *    può usarla per altri tweak (atmosphereAltitude, antialias, sample rate).
  *
  * Le funzioni sono pure: prendono i flag come argomenti, così il chiamante
  * può iniettarli nei test (jsdom non implementa matchMedia/deviceMemory in
  * modo affidabile).
  */
 
-const NASA_VE_BASE = 'https://eoimages.gsfc.nasa.gov/images/imagerecords';
+const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/+$/, '/');
 
-// ---- Blue Marble Next Generation (April 2004 composite) ----
-const BLUE_MARBLE_2K =
-  `${NASA_VE_BASE}/73000/73938/world.topo.200412.3x5400x2700.jpg`;
-const BLUE_MARBLE_8K =
-  `${NASA_VE_BASE}/73000/73938/world.topo.200412.3x21600x10800.jpg`;
-
-// ---- Black Marble 2016 (VIIRS Day-Night Band) ----
-const BLACK_MARBLE_2K =
-  `${NASA_VE_BASE}/144000/144898/BlackMarble_2016_3km_geo.jpg`;
-const BLACK_MARBLE_8K =
-  `${NASA_VE_BASE}/144000/144898/BlackMarble_2016_01deg_geo.jpg`;
-
-// ---- Bump map (NASA Visible Earth elevation, opzionale) ----
-const BUMP_MAP_URL =
-  `${NASA_VE_BASE}/73000/73934/world.topo.bathy.200412.3x5400x2700.jpg`;
+const BLUE_MARBLE_URL = `${BASE}textures/earth-blue-marble-2k.jpg`;
+const BLACK_MARBLE_URL = `${BASE}textures/earth-black-marble-2k.jpg`;
 
 export interface TextureSet {
   blueMarble: string;
   blackMarble: string;
-  /** Bump map elevation. Solo desktop con `enableBump = true`. */
+  /**
+   * Bump map elevation. Sempre `null` nel MVP locale: l'asset NASA al path
+   * canonico non è più disponibile e ospitarne uno proprio è marginale.
+   */
   bumpMap: string | null;
-  /** True se siamo nella variante "lite" (2K, no bump). */
+  /**
+   * `true` per dispositivi narrow / low-mem. Non cambia più la texture set
+   * (sempre 2K), ma il consumer può usarla per disabilitare effetti.
+   */
   isLite: boolean;
 }
 
@@ -55,13 +65,13 @@ export interface DeviceProfile {
   isNarrow: boolean;
   /** `navigator.deviceMemory` se esposto, altrimenti null. */
   deviceMemoryGb: number | null;
-  /** True per disabilitare bump map (dispositivi medi). */
+  /** True per dispositivi mobili / low-mem. */
   isLowEnd: boolean;
 }
 
 /**
  * Sintetizza un profilo device puro. Esposto per testabilità: in produzione
- * lo wrap-er `detectDeviceProfile()` legge i valori da `window`.
+ * lo wrapper `detectDeviceProfile()` legge i valori da `window`.
  */
 export function buildProfile(input: {
   isNarrow: boolean;
@@ -88,23 +98,17 @@ export function detectDeviceProfile(): DeviceProfile {
 }
 
 /**
- * Risolve il set di texture per il device. Esposto puro così i test possono
- * forzare un profilo arbitrario senza toccare jsdom.
+ * Risolve il set di texture per il device.
+ *
+ * Versione MVP locale: stessa risoluzione (2K) per tutti, perché ospitiamo
+ * solo le 2K nel repo. Il flag `isLite` vive solo come hint downstream.
  */
 export function resolveTextureSet(profile: DeviceProfile): TextureSet {
-  if (profile.isLowEnd) {
-    return {
-      blueMarble: BLUE_MARBLE_2K,
-      blackMarble: BLACK_MARBLE_2K,
-      bumpMap: null,
-      isLite: true,
-    };
-  }
   return {
-    blueMarble: BLUE_MARBLE_8K,
-    blackMarble: BLACK_MARBLE_8K,
-    bumpMap: BUMP_MAP_URL,
-    isLite: false,
+    blueMarble: BLUE_MARBLE_URL,
+    blackMarble: BLACK_MARBLE_URL,
+    bumpMap: null,
+    isLite: profile.isLowEnd,
   };
 }
 
