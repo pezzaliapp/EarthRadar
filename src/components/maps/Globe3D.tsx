@@ -86,6 +86,28 @@ export default function Globe3D() {
   const { language } = useTranslation();
   usePerfFallback(true);
 
+  // -------- Sizing al container reale --------
+  // react-globe.gl (via three-render-objects) usa di default
+  // window.innerWidth/innerHeight come dimensioni del canvas. Senza width/
+  // height espliciti, il canvas (~1920×1080) gonfia la min-content della
+  // grid column "1fr" della Home: la colonna LayersPanel (320px) viene
+  // spinta fuori viewport e l'utente vede uno spazio vuoto al posto del
+  // pannello. Misuriamo qui il container e passiamo dimensioni reali al
+  // Globe via ResizeObserver. Vedi PR fix/v1.0.2-globe-layerspanel.
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({ w: Math.max(0, Math.round(rect.width)), h: Math.max(0, Math.round(rect.height)) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // -------- A11y: prefers-reduced-motion --------
   // Disabilita l'animazione di entrata se l'utente ha richiesto motion-reduce.
   const reducedMotion =
@@ -352,7 +374,9 @@ export default function Globe3D() {
   }, []);
 
   // -------- Render --------
-  // Dimensioni: react-globe.gl si auto-sizing al parent se non si passano w/h.
+  // Dimensioni: passiamo width/height espliciti misurati con ResizeObserver
+  // perché three-render-objects usa di default window.innerWidth/innerHeight
+  // (non auto-sizing al parent come pensavamo in v1.0).
   return (
     <div
       ref={containerRef}
@@ -360,8 +384,11 @@ export default function Globe3D() {
       role="region"
       aria-label={language === 'it' ? 'Globo 3D interattivo' : 'Interactive 3D globe'}
     >
+      {size.w > 0 && size.h > 0 && (
       <Globe
         ref={globeRef}
+        width={size.w}
+        height={size.h}
         backgroundColor="rgba(5,7,15,1)"
         globeImageUrl={textures.blueMarble}
         bumpImageUrl={textures.bumpMap ?? undefined}
@@ -427,6 +454,7 @@ export default function Globe3D() {
         labelsTransitionDuration={400}
         rendererConfig={{ alpha: true, antialias: false }}
       />
+      )}
       <div className="pointer-events-none absolute bottom-2 left-2 z-[400] rounded-md border border-cyan-glow/30 bg-space-900/80 px-2 py-1 font-mono text-[10px] tracking-wide text-cyan-glow shadow-glow backdrop-blur-md">
         Blue Marble · Black Marble — NASA Visible Earth · {language}
       </div>
