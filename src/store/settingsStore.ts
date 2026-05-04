@@ -9,10 +9,17 @@ interface SettingsState {
   viewMode: ViewMode;
   disclaimerAcknowledged: boolean;
   notificationsEnabled: boolean;
+  /**
+   * True se abbiamo già attivato il fallback automatico 2D per perf bassa.
+   * Evita di triggerare il check ad ogni 3D-mount: se l'utente sceglie
+   * esplicitamente 3D dopo il fallback, rispettiamo la sua preferenza.
+   */
+  perfFallbackTriggered: boolean;
   setLanguage: (lang: Language) => void;
   setViewMode: (mode: ViewMode) => void;
   acknowledgeDisclaimer: () => void;
   setNotificationsEnabled: (v: boolean) => void;
+  markPerfFallback: () => void;
 }
 
 function detectLanguage(): Language {
@@ -33,14 +40,23 @@ export const useSettingsStore = create<SettingsState>()(
       viewMode: detectInitialViewMode(),
       disclaimerAcknowledged: false,
       notificationsEnabled: false,
+      perfFallbackTriggered: false,
       setLanguage: (language) => set({ language }),
       setViewMode: (viewMode) => set({ viewMode }),
       acknowledgeDisclaimer: () => set({ disclaimerAcknowledged: true }),
       setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
+      markPerfFallback: () => set({ perfFallbackTriggered: true, viewMode: '2d' }),
     }),
     {
       name: 'earthradar:settings',
-      version: 1,
+      version: 2,
+      migrate: (state, version) => {
+        const s = (state ?? {}) as Partial<SettingsState>;
+        if (version < 2 && s.perfFallbackTriggered === undefined) {
+          return { ...s, perfFallbackTriggered: false } as SettingsState;
+        }
+        return s as SettingsState;
+      },
     },
   ),
 );

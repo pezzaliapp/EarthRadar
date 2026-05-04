@@ -97,6 +97,36 @@ describe('translate(): radarMode tribute namespace', () => {
   }
 });
 
+describe('translate(): home Globe3D keys (Fase 3)', () => {
+  // Chiavi nuove per la vista 3D: loader globo, banner overlay-only-2D,
+  // info auto-fallback 2D per perf bassa.
+  const REQUIRED = [
+    'home.globeLoading',
+    'home.overlayOnly2D',
+    'home.perfFallbackInfo',
+  ];
+
+  for (const lang of ['it', 'en'] as const) {
+    for (const key of REQUIRED) {
+      it(`${lang}: ${key} resolves to a non-key string`, () => {
+        const v = translate(lang, key);
+        expect(v).not.toBe(key);
+        expect(typeof v).toBe('string');
+        expect(v.length).toBeGreaterThan(0);
+      });
+    }
+  }
+
+  it('IT overlay-only-2D mentions GIBS / Lightning / Radar', () => {
+    expect(translate('it', 'home.overlayOnly2D')).toMatch(/GIBS/);
+    expect(translate('it', 'home.overlayOnly2D')).toMatch(/Radar/i);
+  });
+
+  it('EN perfFallbackInfo mentions 2D fallback', () => {
+    expect(translate('en', 'home.perfFallbackInfo')).toMatch(/2D/);
+  });
+});
+
 describe('translate(): lightning namespace (Fase 2.8)', () => {
   // Chiavi usate da LightningRow + LightningDetailPanel.
   const REQUIRED = [

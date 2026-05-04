@@ -52,6 +52,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,json}'],
+        // Escludiamo il chunk Globe3D dal precache: pesa ~523 KB gzip
+        // (three + react-globe.gl + globe.gl) e l'utente 2D non deve pagarlo
+        // all'install. Quando l'utente clicca "Globo 3D" il chunk viene
+        // scaricato on-demand e poi caduto in runtime cache via SW.
+        globIgnores: ['**/Globe3D-*.js'],
         navigateFallback: '/EarthRadar/index.html',
         navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
         // Pre-cache budget bumped because of three.js + leaflet + globe textures.
@@ -193,14 +198,49 @@ export default defineConfig({
       'leaflet',
       'zustand',
       'zustand/middleware',
+      // ─── CJS/UMD legacy della catena 3D ──────────────────────────────
+      // Tutti i pacchetti qui sotto hanno solo `main` nel package.json
+      // (niente `module`/`exports`/`type:"module"`) e sono importati —
+      // direttamente o transitivamente — da consumer ESM elencati in
+      // `optimizeDeps.exclude` (react-globe.gl / three-globe / globe.gl
+      // / frame-ticker). Quando Vite NON pre-bundla l'excluded consumer,
+      // non pre-bundla nemmeno i suoi sub-deps → il file CJS viene
+      // servito raw al browser → fallisce con
+      //   "does not provide an export named 'default'"
+      //
+      // Il pattern è strutturale, non puntuale. Forzare il pre-bundle
+      // qui è l'unico fix robusto — esbuild trasforma ogni modulo in
+      // ESM con default-export interop.
+      //
+      // Lista derivata da `node /tmp/scan-cjs.mjs` (commit 321b16c+):
+      // scan delle 8 sub-dep dirette di three-globe + sub-dep di
+      // react-globe.gl, filtrate per assenza di campi ESM nel manifest.
+      //
+      // Importazioni runtime CONFERMATE:
+      'frame-ticker', // ← three-globe.mjs `import _FT from 'frame-ticker'`
+      'prop-types', // ← react-globe.gl.mjs:3 `import PropTypes from 'prop-types'`
+      // Sub-deps transitivi (pre-bundlati implicitamente dai sopra, ma
+      // elencati esplicitamente per difesa contro futuri re-bundle):
+      'react-is', // sub-dep CJS di prop-types/factoryWithTypeCheckers.js
+      'simplesignal', // sub-dep di frame-ticker (oggi bundlato dentro UMD)
     ],
     // Le dep 3D restano fuori dal pre-bundle: vengono caricate solo dai chunk
     // lazy della Fase 3 (Globe3D) e non devono toccare l'entry della Home.
     exclude: ['react-globe.gl', 'three', 'globe.gl'],
+    esbuildOptions: {
+      // Esplicita il default Vite: prima `module` (ESM), poi `main` (CJS).
+      // Non strettamente necessario oggi, ma documenta l'intento e protegge
+      // se in futuro un override del default cambiasse l'ordine.
+      mainFields: ['module', 'main'],
+    },
   },
   build: {
     sourcemap: false,
-    chunkSizeWarningLimit: 1200,
+    // Globe3D pesa ~1.85 MB minified per il bundle three+react-globe.gl. È
+    // lazy + escluso dal precache PWA: il warning non aggiunge informazione
+    // utile, lo alziamo a 2 MB per silenziarlo senza nascondere altri chunk
+    // potenzialmente problematici.
+    chunkSizeWarningLimit: 2000,
   },
   server: {
     host: true,
