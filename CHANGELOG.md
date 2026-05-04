@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] — 2026-05-04
+
+Patch release: easter egg "Radar Mode" attivato, manutenzione CI e UX
+mobile. Nessuna feature pesante e nessun refactoring strutturale —
+tutta la pipeline lint + test + build resta verde (343 test).
+
+### Added
+
+- **Radar Mode tributo (Phase 5 strict optional)** — `src/pages/RadarMode.tsx`
+  attiva la rotta `/radar-mode`. PPI verde fosforo con sweep rotante
+  (10 s/giro), centrato su geolocalizzazione opt-in o centro mappa
+  corrente. Plot in real-time di:
+  - terremoti USGS (raggio = magnitudo)
+  - satelliti CelesTrak gruppi `stations` + `visual` propagati SGP4 al frame
+  - aerei OpenSky (toggle opt-in per non saturare il rate-limit)
+- Range selezionabile 100 / 500 / 1000 / 5000 km, ring concentriche
+  con scala km, lance cardinali N/E/S/W
+- Audio "ping" opzionale (off di default) — WebAudio API, beep sinusoidale
+  880 Hz con cooldown 200 ms anti-cacofonia, triggera quando lo sweep
+  attraversa il bearing del target
+- `prefers-reduced-motion`: sweep statico + audio disabilitato in automatico
+- Disclaimer dedicato "Visualizzazione tributo. Non sostituisce sistemi
+  reali di sismologia, navigazione aerea o difesa planetaria."
+- Link Radar Mode in Footer, Header desktop, BottomNav mobile (4-col),
+  card promo nella pagina Education
+- `src/lib/radarPolar.ts` — proiezione lat/lon → polare (range/bearing),
+  `polarToCanvas`, `isSwept` con gestione wrap, `filterInRange`,
+  `RADAR_RANGES`. Coperto da 20 nuovi test in `radarPolar.test.ts`
+
+### Fixed
+
+- **CI Node.js 22**: `actions/setup-node@v4` con `node-version: '22'` per
+  silenziare i warning di deprecation di GitHub Actions su Node 20
+- **Touch target ≥ 44 × 44 px** (Apple HIG): regola `@media (pointer: coarse)`
+  in `index.css` che porta le label-row del pannello layer a `min-height:
+  44px`, allarga lo slider opacità (track 32 px, thumb 22 × 22) e i
+  checkbox a 18 × 18 — solo su touch, desktop resta compatto
+- **Overflow orizzontale safety net**: `html, body { max-width: 100vw;
+  overflow-x: clip; }` per evitare scrolling laterale su iPhone SE
+  (375 px) in caso di overflow imprevisti
+
+### Security / Operations
+
+- **Rotazione MAP_KEY FIRMS personale**: la key precedentemente esposta
+  in chat va rigenerata individualmente. README EN/IT include nuova
+  sezione "Local setup — FIRMS map key" con i passi per il rilascio
+  gratuito su <https://firms.modaps.eosdis.nasa.gov/api/map_key/>,
+  raccomandazione esplicita di non committare la propria key, e
+  conferma che il deploy in produzione su GitHub Pages **non** include
+  alcuna key (frontend statico, ognuno usa la sua). `.env.example`
+  aggiornato con commento esteso. Il fallback automatico a
+  `GibsFiresOverlay` quando `VITE_FIRMS_MAP_KEY` è vuota era già in
+  place da v1.0.0 e resta invariato
+
+### i18n
+
+- Nuova sezione `radarMode.{intro, rangeLabel, rangeKm, centerLabel,
+  centerGps, centerMap, useMyLocation, useMapCenter, audioToggle,
+  audioOn, audioOff, showAircraft, aircraftHint, reducedMotionNotice,
+  legendQuakes/Satellites/Aircraft/Center, stats, tributeBadge,
+  disclaimer, loading, noLocation}` in IT e EN. Il placeholder
+  precedente `radarMode.placeholder` è stato sostituito dalla feature
+  reale e rimosso (test `i18n.test.ts` aggiornato di conseguenza)
+
+### Bundle
+
+- Chunk `RadarMode-*.js`: 11.20 KB / **3.85 KB gzip** (lazy, caricato
+  solo navigando alla rotta)
+- Nessun impatto sul bundle Home / Globe3D
+
+### Tests
+
+- **343 test verdi** (era 311) — +20 in `radarPolar.test.ts` (toPolar,
+  polarToCanvas su tutti i quadranti, isSwept con gestione wrap,
+  filterInRange con coordinate non finite, RADAR_RANGES sanity), +12
+  da espansione `i18n.test.ts` sulle nuove chiavi `radarMode.*`
+
+---
+
 ## [1.0.0] — 2026-05-04
 
 ### Added
@@ -154,4 +233,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CJS/UMD interop watchdog (anti regression da Fase 3 hotfix)
   - CORS regression guard (anti regression da Fase 3 hotfix)
 
+[1.0.1]: https://github.com/pezzaliapp/EarthRadar/releases/tag/v1.0.1
 [1.0.0]: https://github.com/pezzaliapp/EarthRadar/releases/tag/v1.0.0
