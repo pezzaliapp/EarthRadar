@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useAircraft } from '@/hooks/useAircraft';
+import { buildShareUrl } from '@/lib/buildShareUrl';
+import ShareButton from '@/components/common/ShareButton';
 import type { Aircraft } from '@/services/openSkyApi';
 
 /**
@@ -120,7 +123,22 @@ export default function AircraftDetailPanel() {
         ✈ {t('aircraft.openFr24')} ↗
       </a>
 
-      <p className="text-[11px] text-space-300">⚠ {t('aircraft.incertitude')}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-space-300">⚠ {t('aircraft.incertitude')}</p>
+        <ShareButton
+          ariaLabel={`${t('share.ariaLabel')} — ${record.callsign ?? record.icao24}`}
+          getPayload={() => ({
+            title: `EarthRadar — ${record.callsign ?? record.icao24}`,
+            text: 'Live aircraft tracking',
+            url: buildShareUrl({
+              lat: record.lat,
+              lon: record.lon,
+              view: useSettingsStore.getState().viewMode,
+              overlays: useLayersStore.getState().overlays,
+            }),
+          })}
+        />
+      </div>
     </aside>
   );
 }

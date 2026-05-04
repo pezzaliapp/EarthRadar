@@ -7,12 +7,15 @@ import LayerPanel from '@/components/panels/LayerPanel';
 import QuakeListing from '@/components/panels/QuakeListing';
 import ViewModeToggle from '@/components/layout/ViewModeToggle';
 import SourceBadge from '@/components/common/SourceBadge';
+import ShareButton from '@/components/common/ShareButton';
 import { useQuakes } from '@/hooks/useQuakes';
 import { useAircraft } from '@/hooks/useAircraft';
+import { useApplyIncomingDeepLink } from '@/hooks/useApplyIncomingDeepLink';
 import { remainingCooldownMs } from '@/services/openSkyRateLimit';
 import { useLayersStore } from '@/store/layersStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { activeGibsOverlays } from '@/services/gibsLayers';
+import { buildShareUrl } from '@/lib/buildShareUrl';
 import type { Quake } from '@/services/usgsQuakesApi';
 
 // satellite.js entra in un chunk separato — caricato solo quando l'utente
@@ -52,6 +55,10 @@ const INITIAL_ZOOM = 3;
 
 export default function Home() {
   const { t, language } = useTranslation();
+  // Applica deep link entrante (?lat=&lon=&zoom=&view=&layers=...) una sola
+  // volta al mount e ripulisce la query string. Da MeteorWatch / CubeSat /
+  // self-share. Vedi src/lib/deepLinkBuilder.ts per gli schemi.
+  useApplyIncomingDeepLink();
   const mapRef = useRef<L.Map | null>(null);
   const [center, setCenter] = useState<[number, number]>(INITIAL_CENTER);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -107,7 +114,21 @@ export default function Home() {
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-space-200">{t('home.intro')}</p>
           </div>
-          <div className="hidden sm:block">
+          <div className="hidden items-center gap-2 sm:flex">
+            <ShareButton
+              ariaLabel={t('share.ariaLabel')}
+              getPayload={() => ({
+                title: 'EarthRadar — La Terra dallo spazio in tempo reale',
+                text: t('common.tagline'),
+                url: buildShareUrl({
+                  lat: center[0],
+                  lon: center[1],
+                  view: viewMode,
+                  overlays,
+                  zoom: mapRef.current?.getZoom(),
+                }),
+              })}
+            />
             <ViewModeToggle />
           </div>
         </div>

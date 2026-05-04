@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useFires } from '@/hooks/useFires';
 import { frpColor, frpSeverity, type FirmsBbox, type FirmsHotspot } from '@/services/firmsApi';
+import { buildShareUrl } from '@/lib/buildShareUrl';
+import ShareButton from '@/components/common/ShareButton';
 
 /**
  * Pannello dettaglio dell'hotspot FIRMS selezionato.
@@ -124,8 +127,23 @@ export default function FireDetailPanel() {
         🔥 {t('fires.openFirms')} ↗
       </a>
 
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-space-400">{t('fires.incertitude')}</p>
+        <ShareButton
+          ariaLabel={`${t('share.ariaLabel')} — FIRMS hotspot`}
+          getPayload={() => ({
+            title: 'EarthRadar — Fire hotspot',
+            text: `FRP ${hotspot.frp.toFixed(1)} MW · ${frpSeverity(hotspot.frp)}`,
+            url: buildShareUrl({
+              lat: hotspot.lat,
+              lon: hotspot.lon,
+              view: useSettingsStore.getState().viewMode,
+              overlays: useLayersStore.getState().overlays,
+            }),
+          })}
+        />
+      </div>
       <p className="text-[11px] text-space-300">{t('fires.attribution')}.</p>
-      <p className="text-[10px] text-space-400">{t('fires.incertitude')}</p>
     </aside>
   );
 }

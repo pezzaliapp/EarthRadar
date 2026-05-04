@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useWeatherGrid } from '@/hooks/useWeatherGrid';
 import { wmoEntry, wmoSeverityColor } from '@/lib/wmoCodes';
+import { buildShareUrl } from '@/lib/buildShareUrl';
+import ShareButton from '@/components/common/ShareButton';
 import type { WeatherCell, WeatherPoint } from '@/services/openMeteoApi';
 
 /**
@@ -125,7 +128,22 @@ export default function WeatherDetailPanel() {
         🌦 {t('weather.openForecast')} ↗
       </a>
 
-      <p className="text-[11px] text-space-300">{t('weather.attribution')}.</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-space-300">{t('weather.attribution')}.</p>
+        <ShareButton
+          ariaLabel={t('share.ariaLabel')}
+          getPayload={() => ({
+            title: 'EarthRadar — Weather',
+            text: `${point.lat.toFixed(2)}°, ${point.lon.toFixed(2)}°`,
+            url: buildShareUrl({
+              lat: point.lat,
+              lon: point.lon,
+              view: useSettingsStore.getState().viewMode,
+              overlays: useLayersStore.getState().overlays,
+            }),
+          })}
+        />
+      </div>
     </aside>
   );
 }

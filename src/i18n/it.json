@@ -381,6 +381,21 @@
     "disclaimer": "Strumento divulgativo basato su dati pubblici USGS / NASA / NOAA / CelesTrak / OpenSky / Open-Meteo. Non sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria.",
     "sisterApps": "Sister app"
   },
+  "share": {
+    "label": "Condividi",
+    "copied": "Link copiato",
+    "failed": "Impossibile condividere",
+    "ariaLabel": "Condividi questo elemento"
+  },
+  "notifications": {
+    "permissionRequest": "Attiva notifiche",
+    "permissionGranted": "Notifiche attive",
+    "permissionDenied": "Notifiche bloccate dal browser",
+    "quakeTitle": "Terremoto vicino",
+    "quakeBody": "M{{mag}} a {{distanceKm}} km da te — {{place}}",
+    "issTitle": "ISS in arrivo",
+    "issBody": "Prossimo passaggio visibile tra {{minutes}} min, elevazione max {{elevation}}°"
+  },
   "disclaimer": {
     "title": "EarthRadar — Avviso",
     "body": "Strumento divulgativo basato su dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo. NON sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria. Posizioni satellitari propagate da TLE pubblici (incertezza tipica km su orbite basse).",

@@ -33,10 +33,13 @@ export type LayerId =
   | 'terminator'
   | 'rainviewer';
 
-interface LayerSettings {
+export interface LayerSettings {
   enabled: boolean;
   opacity: number; // 0..1
 }
+
+/** Alias pubblico per i consumer (es. buildShareUrl). */
+export type LayerSnapshot = LayerSettings;
 
 /** Identificazione del satellite selezionato (per il pannello dettaglio). */
 export interface SelectedSatellite {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useSatellites } from '@/hooks/useSatellites';
 import {
   orbitalElements,
@@ -9,6 +10,8 @@ import {
   type Satrec,
 } from '@/lib/sgp4Lite';
 import { cubeSatTleLink } from '@/lib/deepLinkBuilder';
+import { buildShareUrl } from '@/lib/buildShareUrl';
+import ShareButton from '@/components/common/ShareButton';
 import type { SatelliteRecord } from '@/services/celestrakApi';
 
 const TICK_MS = 5_000;
@@ -23,6 +26,8 @@ export default function SatelliteDetailPanel() {
   const groups = useLayersStore((s) => s.satelliteGroups);
   const selected = useLayersStore((s) => s.selectedSatellite);
   const setSelected = useLayersStore((s) => s.setSelectedSatellite);
+  const overlays = useLayersStore((s) => s.overlays);
+  const view = useSettingsStore((s) => s.viewMode);
   const { records } = useSatellites(enabled ? groups : []);
   const [tick, setTick] = useState(() => Date.now());
 
@@ -116,9 +121,21 @@ export default function SatelliteDetailPanel() {
         🌐 {t('satellites.openCubesat')} ↗
       </a>
 
-      <p className="text-[11px] text-space-300">
-        ⚠ {t('satellites.incertitude')}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-space-300">
+          ⚠ {t('satellites.incertitude')}
+        </p>
+        <ShareButton
+          ariaLabel={`${t('share.ariaLabel')} — ${record.name}`}
+          getPayload={() => ({
+            title: `EarthRadar — ${record.name}`,
+            text: `NORAD ${record.noradId} · ${elements.periodMinutes.toFixed(1)} min`,
+            url: position
+              ? buildShareUrl({ lat: position.lat, lon: position.lon, view, overlays })
+              : 'https://www.alessandropezzali.it/EarthRadar/',
+          })}
+        />
+      </div>
     </aside>
   );
 }
