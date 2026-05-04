@@ -12,6 +12,11 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* Clip orizzontale contro overflow imprevisti su viewport stretti
+   * (iPhone SE 375 px). Se un layout va in overflow è un bug, ma il safety
+   * net evita che la pagina scrolli orizzontalmente in attesa della fix. */
+  max-width: 100vw;
+  overflow-x: clip;
   background: radial-gradient(ellipse at top, #0b1129 0%, #05070f 60%, #03040a 100%);
   background-attachment: fixed;
   font-family:
@@ -167,4 +172,31 @@ textarea:focus-visible,
 
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Touch target boost (Apple HIG / Material): su pointer "coarse" (touch)
+ * le righe label cliccabili e i range slider devono avere area minima
+ * 44 × 44 pt. Su mouse restano compatte per non sprecare verticale. */
+@media (pointer: coarse) {
+  /* Label-as-row pattern usato in LayerPanel: la riga deve essere alta ≥ 44 px. */
+  label.cursor-pointer {
+    min-height: 44px;
+  }
+  /* Range slider: thumb più grande + track più alto = più facile da afferrare. */
+  input[type='range'] {
+    height: 32px;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  input[type='range']::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  /* Checkbox più grandi quando appaiono dentro label-row del pannello layer. */
+  label.cursor-pointer input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+  }
 }

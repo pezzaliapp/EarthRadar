@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useTranslation } from '@/i18n';
 
 export default function Education() {
@@ -11,6 +12,14 @@ export default function Education() {
       <section className="glass p-6 text-sm text-space-200">
         {t('education.comingSoon')}
       </section>
+      <Link
+        to="/radar-mode"
+        className="glass-strong block rounded-2xl p-6 transition-shadow hover:shadow-glow-phosphor"
+      >
+        <div className="label text-radar-phosphor">{t('radarMode.tributeBadge')}</div>
+        <div className="mt-1 text-lg font-semibold text-space-50">{t('radarMode.title')}</div>
+        <p className="mt-1 text-sm text-space-200">{t('radarMode.subtitle')}</p>
+      </Link>
     </div>
   );
 }

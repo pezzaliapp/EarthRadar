@@ -61,6 +61,21 @@ npm run lint
 npm run test
 ```
 
+#### Local setup — FIRMS map key (optional)
+
+NASA FIRMS Active Fires (NRT) requires a **personal map key**. Each developer
+should generate **their own**, free of charge:
+
+1. Open <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
+2. Submit your email — the key arrives instantly
+3. Paste it in `.env` as `VITE_FIRMS_MAP_KEY=<your-key>`
+4. **Never commit your key** — `.env` is git-ignored and keys are user-bound
+
+> The production deploy on GitHub Pages does **not** ship a key (it's a static
+> frontend; each consumer brings their own). Without a key, the app falls back
+> automatically to **GIBS Active Fires** (daily, no-key) and shows a banner
+> with a CTA to register a personal key.
+
 ### Architecture
 
 - **React 18 + Vite + TypeScript** — strict mode, route-level code-splitting
@@ -144,6 +159,22 @@ npm install
 cp .env.example .env  # opzionale: VITE_NASA_API_KEY, VITE_FIRMS_MAP_KEY
 npm run dev           # → http://localhost:5173/EarthRadar/
 ```
+
+#### Setup locale — map key FIRMS (opzionale)
+
+NASA FIRMS Active Fires (NRT) richiede una **map key personale**. Ogni
+sviluppatore ne genera **una propria**, gratuita:
+
+1. Apri <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
+2. Inserisci la tua email — la key arriva subito
+3. Incollala in `.env` come `VITE_FIRMS_MAP_KEY=<la-tua-key>`
+4. **Non committare mai la tua key** — `.env` è git-ignored e ogni key è
+   nominale
+
+> Il deploy in produzione su GitHub Pages **non** include una key (è un
+> frontend statico, ognuno usa la sua). Senza key, l'app fa fallback
+> automatico a **GIBS Active Fires** (giornaliero, no key) e mostra un
+> banner con la CTA per registrarne una.
 
 ### Avviso
 

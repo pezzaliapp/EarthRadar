@@ -36,6 +36,9 @@ export default function Footer() {
             >
               {t('footer.github')} ↗
             </a>
+            <Link to="/radar-mode" className="hover:text-radar-phosphor">
+              {t('nav.radar')}
+            </Link>
             <Link to="/about" className="hover:text-cyan-glow">
               {t('footer.about')}
             </Link>

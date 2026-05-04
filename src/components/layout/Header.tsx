@@ -8,6 +8,7 @@ import NotificationsToggle from '@/components/common/NotificationsToggle';
 const NAV: Array<{ to: string; key: string }> = [
   { to: '/', key: 'nav.home' },
   { to: '/education', key: 'nav.education' },
+  { to: '/radar-mode', key: 'nav.radar' },
   { to: '/about', key: 'nav.about' },
 ];
 
