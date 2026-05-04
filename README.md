@@ -4,11 +4,21 @@
 >
 > *Earth from space, in real time. Everything moving above and below the surface, live.*
 
+[![Deploy](https://github.com/pezzaliapp/EarthRadar/actions/workflows/deploy.yml/badge.svg)](https://github.com/pezzaliapp/EarthRadar/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-installable-magenta)](https://www.alessandropezzali.it/EarthRadar/)
+[![Tests](https://img.shields.io/badge/tests-285%2B-brightgreen)](https://github.com/pezzaliapp/EarthRadar/actions)
 
 🌐 **Live**: https://www.alessandropezzali.it/EarthRadar/
 ☄️ **Sister apps**: [MeteorWatch](https://github.com/pezzaliapp/MeteorWatch) · [CubeSat Constellation](https://github.com/pezzaliapp/CubeSat_Constellation)
+
+## Screenshots
+
+> Generate locally with `npm run dev` + DevTools full-page capture (instructions in [`docs/screenshots/`](docs/screenshots/)).
+
+| 2D map view (default mobile) | 3D globe view (default desktop) |
+| --- | --- |
+| ![Home 2D](docs/screenshots/home-2d.png) | ![Home 3D](docs/screenshots/home-3d.png) |
 
 ---
 
@@ -51,12 +61,35 @@ npm run lint
 npm run test
 ```
 
+### Architecture
+
+- **React 18 + Vite + TypeScript** — strict mode, route-level code-splitting
+- **TailwindCSS** dark-first, glassmorphism, custom palette (cyan #5cf0ff / magenta #ff5cd0)
+- **Leaflet + react-leaflet** for the 2D map, **react-globe.gl + three.js** for the 3D globe
+- **Zustand + persist** for state, versioned migrations on each schema bump
+- **`satellite.js`** for SGP4/SDP4 propagation (no fake `INCLINATION`/`RA_OF_ASC_NODE` mapping)
+- **vite-plugin-pwa (Workbox)**: 12+ origins with per-API caching strategies, manual `globIgnores` to keep the heavy 3D bundle out of the install precache
+- **Vitest + Testing Library** — 285+ tests covering pure logic (formatters, deep links, SGP4 wrappers, pass predictor, ICS exporter, notifications) and component smoke (Home, Layout a11y)
+- **NASA Blue Marble + Black Marble textures** hosted locally (`public/textures/`) to avoid CORS issues with the NASA CDN
+
 ### Deploy
 
 A push to `main` triggers `.github/workflows/deploy.yml`:
 1. `npm ci && npm run lint && npm run test && npm run build`
 2. Upload `dist/` artifact
 3. Deploy to GitHub Pages with CNAME `www.alessandropezzali.it`
+
+### Sister apps
+
+EarthRadar is part of the **PezzaliAPP** family of educational tools. The three apps cross-link via deep links:
+
+| App | What it answers | Link in |
+| --- | --- | --- |
+| [**MeteorWatch**](https://github.com/pezzaliapp/MeteorWatch) | "What's coming from space?" — NEO, fireball, reentry tracker | `?event=<type>&id=<id>` |
+| [**EarthRadar**](https://github.com/pezzaliapp/EarthRadar) | "What's happening on Earth right now?" — multi-source live map | `?lat=&lon=&view=&layers=` |
+| [**CubeSat Constellation**](https://github.com/pezzaliapp/CubeSat_Constellation) | "What does that orbit look like in 3D?" — TLE-driven 3D viewer | `?tle=<base64>&name=<name>` |
+
+Click a satellite in EarthRadar → opens its TLE in CubeSat. Click an asteroid event → opens MeteorWatch. Self-share copies the current map state. See [`src/lib/deepLinkBuilder.ts`](src/lib/deepLinkBuilder.ts).
 
 ### Credits
 

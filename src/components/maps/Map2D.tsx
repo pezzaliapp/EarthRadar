@@ -7,6 +7,7 @@ import GibsOverlayHost from './GibsOverlayHost';
 import OverlaysAttributionPanel from './OverlaysAttributionPanel';
 import TerminatorOverlay from '@/components/overlays/TerminatorOverlay';
 import { useLayersStore } from '@/store/layersStore';
+import { useTranslation } from '@/i18n';
 
 interface Props {
   /** Centro iniziale [lat, lon]. Default Reggio Emilia (omaggio al progetto originale). */
@@ -52,11 +53,14 @@ export default function Map2D({
   children,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { language } = useTranslation();
   return (
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden rounded-2xl border border-space-500/30"
       style={{ height }}
+      role="region"
+      aria-label={language === 'it' ? 'Mappa interattiva 2D' : 'Interactive 2D map'}
     >
       <MapContainer
         center={initialCenter}

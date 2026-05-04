@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useIss } from '@/hooks/useIss';
 import {
   azimuthToCardinal,
@@ -10,6 +11,8 @@ import {
 } from '@/lib/passPredictor';
 import { buildIcs, downloadIcs } from '@/lib/icsExporter';
 import { cubeSatTleLink } from '@/lib/deepLinkBuilder';
+import { buildShareUrl } from '@/lib/buildShareUrl';
+import ShareButton from '@/components/common/ShareButton';
 
 const PASS_LIMIT = 5;
 const WINDOW_HOURS = 48;
@@ -250,10 +253,31 @@ export default function IssPanel() {
         )}
       </div>
 
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-space-400">{t('iss.incertitude')}</p>
+        <ShareButton
+          ariaLabel={`${t('share.ariaLabel')} — ISS`}
+          getPayload={() => ({
+            title: 'EarthRadar — ISS live',
+            text: live
+              ? `ISS @ ${live.lat.toFixed(2)}°, ${live.lon.toFixed(2)}°`
+              : 'ISS live tracking',
+            url: live ? buildIssShareUrl(live, observer) : 'https://www.alessandropezzali.it/EarthRadar/',
+          })}
+        />
+      </div>
       <p className="text-[11px] text-space-300">{t('iss.attribution')}.</p>
-      <p className="text-[10px] text-space-400">{t('iss.incertitude')}</p>
     </aside>
   );
+}
+
+function buildIssShareUrl(
+  live: { lat: number; lon: number },
+  _observer: ObserverLocation,
+): string {
+  const overlays = useLayersStore.getState().overlays;
+  const view = useSettingsStore.getState().viewMode;
+  return buildShareUrl({ lat: live.lat, lon: live.lon, view, overlays });
 }
 
 interface PassRowProps {

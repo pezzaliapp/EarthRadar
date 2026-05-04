@@ -67,7 +67,7 @@ export default function SourceBadge({
 
   return (
     <span className={`chip ${cls}`} aria-live="polite" title={error ?? undefined}>
-      <span className={`h-1.5 w-1.5 rounded-full ${pulse ? 'animate-pulse bg-current' : 'bg-current'}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${pulse ? 'animate-pulse motion-reduce:animate-none bg-current' : 'bg-current'}`} />
       {label}
     </span>
   );

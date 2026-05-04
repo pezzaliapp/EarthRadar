@@ -3,6 +3,7 @@ import { useTranslation } from '@/i18n';
 import { useSettingsStore } from '@/store/settingsStore';
 import OnlineBadge from './OnlineBadge';
 import ViewModeToggle from './ViewModeToggle';
+import NotificationsToggle from '@/components/common/NotificationsToggle';
 
 const NAV: Array<{ to: string; key: string }> = [
   { to: '/', key: 'nav.home' },
@@ -57,6 +58,9 @@ export default function Header() {
         <div className="flex items-center gap-2">
           <div className="hidden md:block">
             <ViewModeToggle />
+          </div>
+          <div className="hidden lg:block">
+            <NotificationsToggle />
           </div>
           <OnlineBadge />
           <button

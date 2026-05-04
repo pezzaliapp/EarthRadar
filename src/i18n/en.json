@@ -381,6 +381,21 @@
     "disclaimer": "Educational tool based on public USGS / NASA / NOAA / CelesTrak / OpenSky / Open-Meteo data. Does not replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems.",
     "sisterApps": "Sister apps"
   },
+  "share": {
+    "label": "Share",
+    "copied": "Link copied",
+    "failed": "Unable to share",
+    "ariaLabel": "Share this item"
+  },
+  "notifications": {
+    "permissionRequest": "Enable notifications",
+    "permissionGranted": "Notifications on",
+    "permissionDenied": "Notifications blocked by browser",
+    "quakeTitle": "Nearby earthquake",
+    "quakeBody": "M{{mag}} {{distanceKm}} km from you — {{place}}",
+    "issTitle": "ISS pass incoming",
+    "issBody": "Next visible pass in {{minutes}} min, max elevation {{elevation}}°"
+  },
   "disclaimer": {
     "title": "EarthRadar — Notice",
     "body": "Educational tool based on public USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo data. It does NOT replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems. Satellite positions are propagated from public TLEs (typical km-level uncertainty in LEO).",

@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useEonet } from '@/hooks/useEonet';
 import { eonetCategorySpec } from '@/services/eonetCategories';
 import { trackVelocityKmh, type EonetEvent } from '@/services/eonetApi';
+import { buildShareUrl } from '@/lib/buildShareUrl';
+import ShareButton from '@/components/common/ShareButton';
 
 /**
  * Pannello dettaglio dell'evento EONET selezionato.
@@ -173,8 +176,28 @@ export default function EonetDetailPanel() {
         </a>
       )}
 
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-space-400">{t('eonet.incertitude')}</p>
+        <ShareButton
+          ariaLabel={`${t('share.ariaLabel')} — ${event.title}`}
+          getPayload={() => {
+            const lastPoint = points.at(-1);
+            const lat = lastPoint && lastPoint.type === 'Point' ? lastPoint.coordinates[1] : 0;
+            const lon = lastPoint && lastPoint.type === 'Point' ? lastPoint.coordinates[0] : 0;
+            return {
+              title: `EarthRadar — ${event.title}`,
+              text: `${cat.emoji} ${event.categories[0]?.title ?? cat.id}`,
+              url: buildShareUrl({
+                lat,
+                lon,
+                view: useSettingsStore.getState().viewMode,
+                overlays: useLayersStore.getState().overlays,
+              }),
+            };
+          }}
+        />
+      </div>
       <p className="text-[11px] text-space-300">{t('eonet.attribution')}.</p>
-      <p className="text-[10px] text-space-400">{t('eonet.incertitude')}</p>
     </aside>
   );
 }

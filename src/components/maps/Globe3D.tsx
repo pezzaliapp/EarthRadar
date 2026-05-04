@@ -86,6 +86,12 @@ export default function Globe3D() {
   const { language } = useTranslation();
   usePerfFallback(true);
 
+  // -------- A11y: prefers-reduced-motion --------
+  // Disabilita l'animazione di entrata se l'utente ha richiesto motion-reduce.
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
   // -------- Texture adattive --------
   const textures = useMemo(autoTextureSet, []);
 
@@ -351,6 +357,8 @@ export default function Globe3D() {
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden rounded-2xl border border-space-500/30 bg-space-950"
+      role="region"
+      aria-label={language === 'it' ? 'Globo 3D interattivo' : 'Interactive 3D globe'}
     >
       <Globe
         ref={globeRef}
@@ -360,7 +368,7 @@ export default function Globe3D() {
         atmosphereColor="#5cf0ff"
         atmosphereAltitude={0.16}
         showAtmosphere
-        animateIn
+        animateIn={!reducedMotion}
         // Points
         pointsData={pointsData}
         pointLat={(d: object) => (d as PointEntity).lat}
