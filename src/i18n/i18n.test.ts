@@ -85,15 +85,31 @@ describe('translate(): radar precipitation namespace', () => {
 });
 
 describe('translate(): radarMode tribute namespace', () => {
+  // Chiavi usate dalla pagina Radar Mode (v1.0.1): title, intro, controls UI,
+  // legenda e disclaimer divulgativo. Il placeholder originale è stato
+  // sostituito dalla feature reale e non esiste più.
+  const REQUIRED = [
+    'radarMode.title',
+    'radarMode.subtitle',
+    'radarMode.intro',
+    'radarMode.rangeLabel',
+    'radarMode.audioToggle',
+    'radarMode.disclaimer',
+    'radarMode.tributeBadge',
+  ];
+
   for (const lang of ['it', 'en'] as const) {
-    it(`${lang}: radarMode.title resolves`, () => {
+    it(`${lang}: radarMode.title is "Radar Mode"`, () => {
       expect(translate(lang, 'radarMode.title')).toBe('Radar Mode');
     });
-    it(`${lang}: radarMode.placeholder resolves`, () => {
-      const v = translate(lang, 'radarMode.placeholder');
-      expect(v).not.toBe('radarMode.placeholder');
-      expect(v.length).toBeGreaterThan(0);
-    });
+    for (const key of REQUIRED) {
+      it(`${lang}: ${key} resolves to a non-key string`, () => {
+        const v = translate(lang, key);
+        expect(v).not.toBe(key);
+        expect(typeof v).toBe('string');
+        expect(v.length).toBeGreaterThan(0);
+      });
+    }
   }
 });
 

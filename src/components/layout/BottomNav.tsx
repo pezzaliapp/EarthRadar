@@ -26,6 +26,17 @@ const items: { path: string; key: string; icon: ReactNode }[] = [
     ),
   },
   {
+    path: '/radar-mode',
+    key: 'nav.radar',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 12L20 6" />
+      </svg>
+    ),
+  },
+  {
     path: '/about',
     key: 'nav.about',
     icon: (
@@ -41,7 +52,7 @@ export default function BottomNav() {
   const { t } = useTranslation();
   return (
     <nav className="safe-bottom fixed bottom-0 left-0 right-0 z-30 border-t border-space-500/30 bg-space-900/85 backdrop-blur-md md:hidden">
-      <div className="mx-auto grid max-w-6xl grid-cols-3">
+      <div className="mx-auto grid max-w-6xl grid-cols-4">
         {items.map((it) => (
           <NavLink
             key={it.path}
