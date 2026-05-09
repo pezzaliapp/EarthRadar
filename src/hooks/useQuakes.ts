@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   fetchQuakes,
   type Quake,
@@ -30,11 +30,19 @@ export function useQuakes(
     fetchedAt: number | null;
   }>({ data: [], source: 'pending', error: null, loading: true, fetchedAt: null });
 
+  // Tracks whether the consumer is still mounted. fetchQuakes può rigettare
+  // dopo l'unmount: senza guardia, setState verrebbe chiamato su un env
+  // jsdom già distrutto (CI: "ReferenceError: window is not defined" da
+  // react-dom getCurrentEventPriority).
+  const mountedRef = useRef(true);
+
   async function load(force = false) {
+    if (!mountedRef.current) return;
     setState((s) => ({ ...s, loading: true }));
     try {
       const fetchOpts: FetchQuakesOpts = { feed, force };
       const r = await fetchQuakes(fetchOpts);
+      if (!mountedRef.current) return;
       setState({
         data: r.value,
         source: r.source,
@@ -43,19 +51,20 @@ export function useQuakes(
         fetchedAt: r.fetchedAt,
       });
     } catch (e) {
+      if (!mountedRef.current) return;
       const msg = e instanceof Error ? e.message : 'unknown error';
       setState((s) => ({ ...s, error: msg, loading: false }));
     }
   }
 
   useEffect(() => {
-    let cancelled = false;
+    mountedRef.current = true;
     load();
     const id = window.setInterval(() => {
-      if (!cancelled) load();
+      if (mountedRef.current) load();
     }, opts.pollMs ?? DEFAULT_POLL_MS);
     return () => {
-      cancelled = true;
+      mountedRef.current = false;
       window.clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
