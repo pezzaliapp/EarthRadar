@@ -359,7 +359,418 @@
   "education": {
     "title": "Learn",
     "subtitle": "Glossary, sources and how to read the data",
-    "comingSoon": "Education section coming soon: glossary, sources, and tutorials on magnitude scales, orbital classification, natural-event severity."
+    "comingSoon": "Education section coming soon: glossary, sources, and tutorials on magnitude scales, orbital classification, natural-event severity.",
+    "intro": "EarthRadar is an educational tool. What you see on the map is a sum of public feeds — some updated minute-by-minute, others daily, others propagated from mathematical models. Understanding what you're looking at, where the data comes from, and where its reliability ends, is the most interesting part. This page exists for exactly that.",
+    "nav": {
+      "ariaLabel": "Learn page sections",
+      "layers": "App layers",
+      "glossary": "Glossary",
+      "tutorials": "Tutorials",
+      "sources": "Data sources",
+      "extra": "Extras"
+    },
+    "search": {
+      "placeholder": "Search a glossary term…",
+      "noResults": "No term found for «{{query}}»."
+    },
+    "layers": {
+      "sectionTitle": "The app's layers",
+      "sectionIntro": "Nine different sources, nine ways to look at the planet. For each one you'll find what it is, where it comes from, how to read it, and — most importantly — where it stops being reliable.",
+      "card": {
+        "what": "What it is",
+        "where": "Where it comes from",
+        "howToRead": "How to read it",
+        "limits": "Limits"
+      },
+      "items": {
+        "quakes": {
+          "title": "USGS Earthquakes",
+          "what": "The Earth's crust trembles continuously. Dozens of times a minute, somewhere, something moves — usually a little, sometimes a lot. The USGS feed collects all of it, from quakes only seismographs notice to events that wake up a neighborhood.",
+          "where": "U.S. Geological Survey — public GeoJSON feed updated by the minute, global coverage.",
+          "howToRead": "Color tells the magnitude: yellow for tiny tremors, orange for felt events, red for destructive earthquakes. Depth matters as much as magnitude: an M4 at 10 km makes more noise on the surface than an M5 at 300 km. The blue ring appears only when the epicenter sits under an ocean and the agency has issued a tsunami advisory.",
+          "limits": "USGS is fast but not infallible: initial magnitude estimates get refined in the following hours, and events below M4.5 outside the United States depend on national seismic networks. For shaking you actually feel at home, trust the ground that trembles, not the dot on screen."
+        },
+        "satellites": {
+          "title": "CelesTrak Satellites",
+          "what": "Above your head right now there are thousands of objects in orbit. Phones, telescopes, broken telescopes, fragments of forty-year-old rockets, satellites declared dead that keep on spinning. CelesTrak catalogues them all, and EarthRadar shows a curated selection: crewed stations, naked-eye visible satellites, the Starlink, GPS, Galileo, GLONASS constellations.",
+          "where": "CelesTrak — public TLE archive curated by T.S. Kelso since 1985. The underlying data comes from the U.S. Space Surveillance Network.",
+          "howToRead": "Each dot is a satellite whose position is propagated forward from its most recent TLE using the SGP4 algorithm (the same the military use, on the civilian side). An object in low Earth orbit (LEO, 400-2000 km) travels at about 7.5 km/s — completing a full orbit in 90 minutes. Click a satellite to open the panel with altitude, period, inclination, and a link to CubeSat to see it in 3D.",
+          "limits": "TLEs age. Typical uncertainty is a few km for LEO if the TLE is days old, hundreds of km after weeks. For active civilian satellites, updates are frequent; for fragments of old military rockets, much rarer — the Russian SL-14 NORAD 16882, in orbit since 1986, sometimes has a TLE that doesn't refresh for days."
+        },
+        "iss": {
+          "title": "ISS Live",
+          "what": "The International Space Station is a 420-tonne laboratory orbiting at about 408 km altitude, completing one Earth orbit every 93 minutes. Its live position comes from a dedicated service (wheretheiss.at) that computes it continuously, and EarthRadar shows it as a moving dot on the map.",
+          "where": "wheretheiss.at — free API based on public NORAD TLEs. Position is propagated with SGP4 to the millisecond, pass alerts are computed client-side.",
+          "howToRead": "Typical altitude 408 km, speed 7.66 km/s. The detail panel also computes the next five passes visible from your location: «visible» means the ISS is sunlit while it's already night where you are — that moment when a slow, steady bright dot crosses the sky from one side to the other, and you're on the balcony waving at it.",
+          "limits": "Pass predictions have an uncertainty of a few seconds over 24 hours; beyond that, it depends on when NASA publishes a refreshed TLE after a reboost manoeuvre. Apparent magnitude varies from -5 (brighter than Venus) to invisible, depending on the Sun-observer-station angle."
+        },
+        "aircraft": {
+          "title": "OpenSky Aircraft",
+          "what": "Almost every civilian aircraft in flight broadcasts its position in the clear via ADS-B, on a radio band anyone with a twenty-euro antenna can pick up. The OpenSky network is a community of volunteers with these antennas scattered across the world, pooling the data and making it freely available to research.",
+          "where": "OpenSky Network — open-data project founded at ETH Zürich. Excellent coverage over Europe and North America, patchy over oceans and remote areas.",
+          "howToRead": "Each small triangle is an aircraft, oriented along its flight direction. Clicking opens callsign, ICAO24, registration country, barometric altitude, ground speed, heading, and a link to Flightradar24 for the full flight plan. Cruise altitudes are 10-12 km; takeoff or landing aircraft fly much lower.",
+          "limits": "ADS-B is mandatory in many controlled airspaces but not everywhere. Missing: most military traffic (deliberately), part of Russian and Chinese traffic, and any flights over zones without nearby OpenSky receivers. No operational decisions on this data — it's a curiosity tool, not air-traffic control."
+        },
+        "fires": {
+          "title": "NASA FIRMS Active Fires",
+          "what": "When a NASA satellite passes over an area, its thermal cameras measure ground temperature. If they find a point much hotter than its surroundings — a fire, a lava flow, a flaring gas field, a refinery — they classify it as a «hotspot» and tag it on the map within a few hours.",
+          "where": "NASA FIRMS (Fire Information for Resource Management System) — VIIRS sensors on Suomi-NPP and NOAA-20, MODIS on Terra and Aqua. Resolution 375 m (VIIRS) or 1 km (MODIS).",
+          "howToRead": "When a satellite sees a hot pixel it doesn't know whether it's a real fire or a piece of rusty metal reflecting the Sun. The FRP value, in megawatts, is its estimate of how much that point is actually burning — a few MW for a small agricultural fire, dozens of MW for a forest blaze, over a hundred for an Australian megafire. The «confidence» (low/nominal/high) tells you how sure the algorithm is it didn't get fooled.",
+          "limits": "Three serious limits to keep in mind. Polar satellites pass twice a day over the same area, so a nighttime fire under cloud cover can be missed. Refineries, volcanoes, and industrial chimneys always look like fires and need to be filtered out by hand. Ground confirmation isn't there: a red hotspot isn't a news story, just a satellite that saw something hot."
+        },
+        "eonet": {
+          "title": "EONET Natural Events",
+          "what": "When something big happens on Earth — a hurricane, an eruption, a flood, an iceberg breaking off Antarctica — NASA tracks the event from start to finish, collecting positions as the phenomenon moves. EONET is the journal of these global events, hand-curated by the Goddard Space Flight Center team.",
+          "where": "NASA EONET (Earth Observatory Natural Event Tracker) — aggregator of official sources (Pacific Disaster Center, GDACS, USGS, ICE) curated at Goddard Space Flight Center.",
+          "howToRead": "Each event has a category (volcanoes, severe storms, wildfires, floods, seismic swarms, icebergs, landslides), a track of points showing how it moved over time, and a magnitude estimate where available — Saffir-Simpson category for hurricanes, M for earthquakes. The detail panel shows sources, polygon area when available, time since opening.",
+          "limits": "EONET isn't exhaustive: it covers events of global interest, not the summer thunderstorm in your village. Latency between event and first record can be hours, occasionally a full day. For daily official news rely on civil-protection channels and national meteorological agencies."
+        },
+        "gibs": {
+          "title": "NASA GIBS Maps",
+          "what": "Everything you see behind the data dots — Earth in true color, the Black Marble night lights, today's clouds, ice cover, aerosol AOD — comes from GIBS, NASA's public satellite imagery archive. Each layer is a daily map served as WMTS tiles, in pieces, because a full planetary image would be an impossible download.",
+          "where": "NASA GIBS (Global Imagery Browse Services) — covers VIIRS Suomi-NPP, MODIS Terra/Aqua, GOES-East/West, Black Marble, and several scientific products (temperature, AOD, snow, ice).",
+          "howToRead": "VIIRS true-color and MODIS products are daily, one image per zone per day. GOES GeoColor is near-real-time, refreshed every ten minutes. Black Marble is a year-long composite of night lights: no clouds, just electricity. AOD (aerosols) and other scientific products carry their own colour scales with dedicated legends.",
+          "limits": "NASA tiles = excellent quality but variable latency. A «today» layer might not be ready until evening, and some products carry a one-day default delay. Cloud rendering shows what the satellite saw when it flew over: not a forecast, a few-hours-old photograph."
+        },
+        "rainviewer": {
+          "title": "RainViewer Precipitation Radar",
+          "what": "RainViewer aggregates national weather radars — ARPA, MeteoFrance, NOAA, JMA, Bureau of Meteorology — into a single global mosaic, served as tiles refreshed every ten minutes. On the layer you can literally watch a thunderstorm front approach an hour before it rains on your head.",
+          "where": "RainViewer — freemium commercial service that federates public national radars. The free tile set covers the entire planet, no API key needed.",
+          "howToRead": "The scrubber on the radar bar is a small meteorological VCR: scroll back an hour to see what happened, scroll forward for the 30-minute nowcast generated by extrapolating current wind. Colors run from green (light rain) to violet (hail, torrential rain) — the standard meteorological radar scale.",
+          "limits": "Over oceans and deserts the radars don't reach: national radars cover inhabited land. The nowcast is a projection, not a real forecast. To plan a trip use Open-Meteo or a serious national weather service. To decide whether to head to the supermarket without an umbrella, RainViewer is perfect."
+        },
+        "weather": {
+          "title": "Open-Meteo Weather",
+          "what": "Open-Meteo is an open-source, free, no-API-key weather service that returns current conditions and 7-day forecasts for any point on Earth. EarthRadar uses it to populate eight directional cells around the map center — a small 360° dashboard of local weather, from east to west passing through where you are.",
+          "where": "Open-Meteo — Swiss project that aggregates ECMWF, GFS, ICON, MeteoSwiss, JMA. The whole model stack behind it is free and accessible without registration.",
+          "howToRead": "Each cell shows temperature, wind, humidity, pressure, cloud cover, and the WMO weather code (clear, cloudy, rain, thunderstorm, snow). The center dot is your chosen map point. Eight cells at configurable distance tell you whether the front is coming from the north or passing right above you.",
+          "limits": "Every weather model is an averaged estimate on a grid of a few km — your backyard's microclimate may differ. 7-day forecasts grow more uncertain over time: at 3 days wind is reliable, at 7 days temperature is an educated guess. Not a substitute for certified local stations or a meteorologist who actually knows your valley."
+        }
+      }
+    },
+    "glossary": {
+      "sectionTitle": "Glossary",
+      "sectionIntro": "About twenty-five words that show up across the app's panels and detail cards. Click to expand: you'll find a definition, an example, and — when it helps — a Wikipedia link to dig deeper.",
+      "exampleLabel": "Example",
+      "wikipediaLink": "Wikipedia",
+      "items": {
+        "aod": {
+          "term": "AOD",
+          "definition": "Aerosol Optical Depth: how much suspended particles in the air (smoke, sand, dust, smog) block sunlight. Zero means transparent atmosphere, values above 1 mean a mask kind of day.",
+          "example": "The day after a volcanic eruption, AOD over the island can jump from 0.1 to 4: the satellite sees less ground because there's ash in the way."
+        },
+        "apogee": {
+          "term": "Apogee",
+          "definition": "The farthest point from Earth on an elliptical orbit. The opposite point, the closest, is called perigee. A satellite at apogee moves slowly; at perigee it bolts.",
+          "example": "A satellite on a geostationary transfer orbit (GTO) has its perigee at 250 km and its apogee at 36,000 km: the energy needed to reach up there is huge."
+        },
+        "bolide": {
+          "term": "Bolide",
+          "definition": "A particularly bright meteor — usually bright enough to cast shadows at noon or to wake people up at night. There's no precise threshold: you call it a bolide when a meteor «makes noise».",
+          "example": "The 2013 Chelyabinsk bolide entered the atmosphere at 19 km/s and shattered thousands of windows in Chelyabinsk: it was 20 metres wide."
+        },
+        "eccentricity": {
+          "term": "Orbital Eccentricity",
+          "definition": "How squashed an orbit is: 0 = perfect circle, close to 1 = very stretched ellipse, above 1 = trajectory escaping the planet. Most civilian satellites have eccentricity below 0.01.",
+          "example": "The ISS has eccentricity ~0.0007 (almost perfectly circular). Russian Molniya orbits have eccentricity 0.7: a long ellipse that lingers over Russia."
+        },
+        "ephemeris": {
+          "term": "Ephemeris",
+          "definition": "A table that says where a celestial object is at a given date and time. Ephemerides exist for planets, satellites, comets, asteroids: they're the raw data every astronomy software starts from.",
+          "example": "JPL Horizons ephemerides give Mars' position to the millisecond for the next five thousand years."
+        },
+        "frp": {
+          "term": "FRP (Fire Radiative Power)",
+          "definition": "An estimate, in megawatts, of how much energy a hot spot is radiating as fire. Computed from the difference between the satellite-measured temperature and the surrounding context. Higher FRP means a more intense fire at that instant.",
+          "example": "A small agricultural burn: 5 MW. A Mediterranean forest fire: 30-80 MW. Australia's 2009 Black Saturday: over 800 MW per pixel."
+        },
+        "gnss": {
+          "term": "GPS / Galileo / GLONASS / BeiDou",
+          "definition": "The four global positioning satellite constellations: American (GPS, ~30 satellites), European (Galileo, ~30), Russian (GLONASS, ~24), Chinese (BeiDou, ~35). Your phone uses all four together.",
+          "example": "When the navigator says «lost signal», it usually means GPS satellites are blocked by buildings. Galileo and BeiDou often help recover the fix."
+        },
+        "heoLeoMeoGeo": {
+          "term": "LEO / MEO / GEO / HEO",
+          "definition": "The orbital bands. LEO (Low Earth Orbit, 200-2000 km): ISS, Starlink, science satellites. MEO (2000-35,786 km): GPS, Galileo. GEO (exactly 35,786 km): geostationary TV and weather satellites. HEO (beyond, or highly elliptical): science missions, Molniya orbits.",
+          "example": "The ISS is in LEO. The MeteoSat that watches all of Europe stationary is in GEO. GPS sits in MEO."
+        },
+        "hotspot": {
+          "term": "Hotspot",
+          "definition": "In FIRMS context, a pixel of the satellite thermal map where temperature crosses the threshold that triggers the fire-detection algorithm. Not automatically a fire: it's a point worth checking.",
+          "example": "A persistent hotspot at the same coordinates for months is almost always a refinery or a chronically active volcano, not a vegetation fire."
+        },
+        "inclination": {
+          "term": "Orbital Inclination",
+          "definition": "The angle between the orbital plane and Earth's equator. 0° = equatorial orbit, 90° = polar orbit, beyond 90° = retrograde orbit (running opposite to the planet's rotation).",
+          "example": "The ISS sits at 51.6° inclination: chosen to be reachable both from Cape Canaveral and from the Baikonur cosmodrome. Polar satellites (98°) cover the whole planet within a day."
+        },
+        "magApparent": {
+          "term": "Apparent Magnitude",
+          "definition": "How bright an object looks in the sky, on a logarithmic scale that runs backwards: low numbers = very bright, high numbers = faint. Sirius is -1.5; Venus reaches -4.9; the Sun is -27.",
+          "example": "The ISS at the best passes reaches magnitude -5: brighter than any star or planet. A freshly launched Starlink satellite hits -4."
+        },
+        "magRichter": {
+          "term": "Richter Magnitude",
+          "definition": "The logarithmic scale for earthquake strength: each step up multiplies the released energy by ~32. Below M3 you barely feel it, M5 wakes a neighborhood, M7 collapses buildings, above M8 events make it into history books.",
+          "example": "The 2016 Amatrice earthquake was M6.2. The 2011 Tōhoku quake (Fukushima) was M9.1: 16,000 times more energy."
+        },
+        "noradId": {
+          "term": "NORAD CAT ID",
+          "definition": "The catalogue number assigned by North American Aerospace Defense Command to every object in orbit larger than about ten centimetres. It's the universal identifier of a satellite or piece of debris.",
+          "example": "The ISS is NORAD 25544. The old Russian SL-14 rocket NORAD 16882, launched in 1986, keeps spinning and still has a public TLE."
+        },
+        "perigee": {
+          "term": "Perigee",
+          "definition": "The closest point to Earth on an elliptical orbit. On a circular orbit perigee and apogee coincide. It's where the satellite moves fastest and where residual atmospheric drag hits it hardest.",
+          "example": "For a LEO satellite the perigee determines how much atmosphere it crosses each orbit: below 250 km, orbital decay becomes rapid and re-entry comes within months."
+        },
+        "hypocentralDepth": {
+          "term": "Hypocentral Depth",
+          "definition": "How deep the fault rupture that generated an earthquake actually occurred. Within 10 km = «shallow», 70-300 km = intermediate, beyond 300 = deep. A shallow earthquake causes more surface damage at equal magnitude.",
+          "example": "Italian Apennine earthquakes are almost all shallow (5-15 km). Those under Calabria can reach 600 km — huge energy, minimal surface damage."
+        },
+        "sgp4": {
+          "term": "SGP4",
+          "definition": "Simplified General Perturbations 4: the standard algorithm to propagate the position of a low-Earth-orbit satellite from its TLE. Accounts for Earth's non-spherical shape, atmospheric drag, and other minor effects.",
+          "example": "EarthRadar uses satellite.js, a JavaScript port of SGP4. Typical accuracy is a few km on a recent TLE, but degrades quickly past 7-10 days."
+        },
+        "terminator": {
+          "term": "Terminator",
+          "definition": "The curved line separating day from night on a planet's surface. It moves slowly from east to west as the planet rotates beneath the Sun. On Earth it advances at about 1,670 km/h at the equator.",
+          "example": "EarthRadar draws the terminator in real time: at 12:00 Italian time you'll find it in the middle of the Pacific, at 18:00 over the Atlantic, and so on."
+        },
+        "tle": {
+          "term": "TLE (Two-Line Element)",
+          "definition": "The standard format for describing an orbit: two 69-character lines, codified by NORAD in the 1960s. They contain inclination, eccentricity, and along-orbit position at a given epoch — everything needed to propagate with SGP4.",
+          "example": "A TLE has an epoch — the moment it was valid. Old = unreliable. EarthRadar pulls fresh TLEs from CelesTrak every time the satellites layer is opened."
+        },
+        "wmoCodes": {
+          "term": "WMO Weather Codes",
+          "definition": "A standard table from the World Meteorological Organization that codes each weather condition with a number: 0 = clear, 51 = light drizzle, 95 = thunderstorm, 99 = thunderstorm with heavy hail. Every serious provider uses them.",
+          "example": "Open-Meteo returns weathercode 95 when the model expects a thunderstorm: EarthRadar translates it into «Thunderstorm» with the matching icon."
+        },
+        "wmts": {
+          "term": "WMTS",
+          "definition": "Web Map Tile Service: the OGC standard for serving maps as pre-rendered tiles, with multiple zoom levels. It's what lets Leaflet show you the whole planet without downloading a multi-gigabyte image.",
+          "example": "NASA GIBS tiles are served via WMTS: each zoom is a grid of 256×256 PNG images, addressable as (z, x, y)."
+        },
+        "wms": {
+          "term": "WMS",
+          "definition": "Web Map Service: WMTS's older sibling, but not pre-cooked tiles — each request returns an image generated on-the-fly for the requested bounding box. More flexible, slower, less cacheable.",
+          "example": "Some NASA scientific layers exist as WMS before being baked into WMTS: useful for custom analyses, too expensive for a consumer webapp."
+        },
+        "adsB": {
+          "term": "ADS-B",
+          "definition": "Automatic Dependent Surveillance-Broadcast: the system through which an aircraft broadcasts its position, altitude, and speed in the clear every half-second. Anyone with a 20-euro SDR receiver can listen in.",
+          "example": "OpenSky federates thousands of amateur ADS-B receivers around the world. A Boeing 747's transponder broadcasts on 1090 MHz."
+        },
+        "epoch": {
+          "term": "Epoch (TLE)",
+          "definition": "The exact moment a TLE's parameters are valid for. Expressed as year + UTC day fraction. A TLE is used to propagate position forward (and backward) from its epoch.",
+          "example": "If a TLE has epoch 2026-05-08 14:23:11 UTC and you're 24 hours later, the propagated position is still excellent. A week later, it has accumulated several km of error."
+        },
+        "orbitalPeriod": {
+          "term": "Orbital Period",
+          "definition": "How long a satellite takes to complete one full orbit of the planet. Depends almost entirely on altitude: 90 minutes for the ISS, 100 minutes for Starlink, 12 hours for GPS, 24 hours for geostationary satellites.",
+          "example": "A geostationary satellite has a period identical to one Earth day: that's why it appears «still» in the sky from the ground. It's the satellite-TV trick."
+        },
+        "tsunami": {
+          "term": "Tsunami",
+          "definition": "A very long wave generated by the sudden displacement of a large body of water — usually from an undersea earthquake, sometimes from a coastal landslide or an eruption. Invisible offshore, reaches the coast with devastating energy.",
+          "example": "USGS marks undersea epicentres with a blue ring when the event has triggered a tsunami advisory from national agencies (PTWC, JMA, INGV)."
+        }
+      }
+    },
+    "tutorials": {
+      "sectionTitle": "Tutorials",
+      "sectionIntro": "Four practical mini-guides. Each one explains how to use EarthRadar to do one specific thing — see a satellite pass over your house, understand a quake you just felt, predict an incoming storm.",
+      "stepLabel": "Step {{current}} of {{total}}",
+      "screenshotPending": "Screenshot pending",
+      "items": {
+        "iss": {
+          "title": "Find the ISS over me",
+          "description": "Seeing it with the naked eye is one of those silly, wonderful things worth doing at least once. It really does show up, and it passes in three minutes.",
+          "steps": {
+            "step1": {
+              "title": "Open the ISS panel",
+              "body": "From the layers panel, enable «ISS Live». A moving dot appears on the globe — that's the station, propagated in real time from the NORAD 25544 TLE. Click it to open the detail panel."
+            },
+            "step2": {
+              "title": "Grant geolocation",
+              "body": "In the detail panel click «Use my location». The browser will ask permission once. Without geolocation, EarthRadar uses the current map center as the observer — works, but is less accurate for visible passes."
+            },
+            "step3": {
+              "title": "Read the next 5 passes",
+              "body": "The panel lists the next five passes over you in the next 48 hours: start time, duration, maximum elevation above the horizon, apparent magnitude. «Visible» = the ISS is sunlit while it's already night where you are. Those are the passes worth going outside for."
+            },
+            "step4": {
+              "title": "Step outside and look up",
+              "body": "Ten minutes before the pass, head out. Look toward the indicated start direction (e.g. «WSW») — that's where it'll appear. You'll see a slow dot crossing the sky, steady like a star but moving. No flashing lights: those are aircraft. The ISS is continuous, silent, and three minutes later it's gone."
+            }
+          }
+        },
+        "quake": {
+          "title": "Make sense of an earthquake",
+          "description": "You felt a tremor, or saw it on the news, and want to frame it. EarthRadar isn't a substitute for INGV but it helps you read the raw USGS data in thirty seconds.",
+          "steps": {
+            "step1": {
+              "title": "Center the map on the epicenter",
+              "body": "Enable the «USGS Earthquakes» layer and zoom into the area of interest. All events from the last 24 hours show up as colored circles: yellow = small, orange = felt, red = strong. Larger circle = higher magnitude."
+            },
+            "step2": {
+              "title": "Open the detail panel",
+              "body": "Click the circle. The panel shows magnitude, depth, UTC time, distance from map center, direct link to the USGS page. Depth matters: at equal magnitude, an earthquake at 5 km causes far more surface noise than one at 200 km."
+            },
+            "step3": {
+              "title": "Compare with context",
+              "body": "Take a quick look at nearby quakes from the last 24 hours. A sequence of smaller shocks after the main event is probably an aftershock swarm. A single isolated event is more interesting. For the official Italian record there's INGV; EarthRadar gives you the global frame."
+            }
+          }
+        },
+        "satellite": {
+          "title": "Identify a satellite",
+          "description": "You saw a slow dot crossing the sky, or you're wondering what that bright triangle on the map is. You can find out in thirty seconds.",
+          "steps": {
+            "step1": {
+              "title": "Enable the right group",
+              "body": "Open the layers panel and turn on «CelesTrak Satellites». For naked-eye satellites pick the «Visual» group; for ISS, CSS and friends pick «Stations»; for the Starlink dot trains pick «Starlink»."
+            },
+            "step2": {
+              "title": "Click it on the map",
+              "body": "Click the dot on the map. The detail panel opens: NORAD CAT ID, official name, international ID (launch year + sequence), TLE epoch, inclination, eccentricity, orbital period, perigee, apogee."
+            },
+            "step3": {
+              "title": "Open it in CubeSat 3D",
+              "body": "From the detail panel click «View in CubeSat 3D»: the sister app opens with the TLE preloaded, and you can watch the orbit spin around the planet in three dimensions. From there you'll instantly grasp the difference between a polar and an equatorial satellite."
+            }
+          }
+        },
+        "storm": {
+          "title": "Watch a thunderstorm coming",
+          "description": "Black sky to the west, wind shifting direction, a phone call from grandma telling you «it's coming». EarthRadar is perfect to figure out in half an hour whether it's a serious storm or it's passing wide.",
+          "steps": {
+            "step1": {
+              "title": "Enable radar and weather",
+              "body": "From the layers panel turn on «RainViewer Precipitation Radar» and «Open-Meteo Weather». Center on your location (GPS or manual pan). The radar covers all of Europe with tiles refreshed every 10 minutes."
+            },
+            "step2": {
+              "title": "Scrub the radar through time",
+              "body": "Use the radar slider to scroll back an hour and then forward into the nowcast: you'll see how the rain has moved. If the storm cell points straight at your house at wind speed, expect rain on your head within 30-60 minutes."
+            },
+            "step3": {
+              "title": "Confirm with the 8-cell weather",
+              "body": "The eight Open-Meteo directional cells around the map center tell you what the model predicts at 25/50/100 km in each direction. WMO code 95 to the east = thunderstorm incoming. 51-53 = drizzle, nothing dramatic. If radar and model agree, the forecast is solid."
+            }
+          }
+        }
+      }
+    },
+    "sources": {
+      "sectionTitle": "Data sources",
+      "sectionIntro": "Everything you see in EarthRadar comes from public feeds, run by agencies that release their data freely. Here you'll find each provider's licence, update frequency, and a suggested academic citation for use in research or teaching.",
+      "card": {
+        "license": "Licence",
+        "frequency": "Update",
+        "citationShow": "Show academic citation",
+        "citationHide": "Hide citation",
+        "openLink": "Official site"
+      },
+      "items": {
+        "nasaGibs": {
+          "glyph": "GIBS",
+          "name": "NASA Worldview / GIBS",
+          "provides": "WMTS tiles of global satellite imagery — VIIRS, MODIS, GOES, Black Marble, plus over 1,000 scientific products including cloud cover, AOD, snow, ice.",
+          "license": "Public domain (NASA Open Data)",
+          "frequency": "From 10 minutes (GeoColor GOES) to daily (VIIRS, MODIS)",
+          "citation": "NASA Global Imagery Browse Services (GIBS), part of the NASA Earth Observing System Data and Information System (EOSDIS). https://earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/gibs"
+        },
+        "eonet": {
+          "glyph": "EONET",
+          "name": "NASA EONET",
+          "provides": "Curated catalogue of ongoing and recent natural events: hurricanes, volcanic eruptions, floods, wildfires, landslides, icebergs, seismic swarms. Manual + automatic updates.",
+          "license": "Public domain (NASA Open Data)",
+          "frequency": "Continuous, typical latency 0-24 h",
+          "citation": "NASA Earth Observatory Natural Event Tracker (EONET), Goddard Space Flight Center. https://eonet.gsfc.nasa.gov/"
+        },
+        "firms": {
+          "glyph": "FIRMS",
+          "name": "NASA FIRMS",
+          "provides": "Thermal hotspots from polar satellites VIIRS (Suomi-NPP, NOAA-20) and MODIS (Terra, Aqua). 375 m (VIIRS) or 1 km (MODIS) resolution, FRP value, confidence.",
+          "license": "Public domain (NASA Open Data)",
+          "frequency": "Near-real-time, typical 3-hour latency",
+          "citation": "NASA FIRMS — Fire Information for Resource Management System, NASA/EOSDIS Land, Atmosphere Near real-time Capability for EOS (LANCE). https://firms.modaps.eosdis.nasa.gov/"
+        },
+        "visibleEarth": {
+          "glyph": "VE",
+          "name": "NASA Visible Earth",
+          "provides": "High-resolution planet textures for the 3D globe — Blue Marble, Black Marble, geological and biophysical maps. 2K, 8K, 21K versions available.",
+          "license": "Public domain (NASA image use policy)",
+          "frequency": "Periodic static composites (annual or multi-year)",
+          "citation": "NASA Earth Observatory Visible Earth, Goddard Space Flight Center. https://visibleearth.nasa.gov/"
+        },
+        "usgsEq": {
+          "glyph": "USGS",
+          "name": "USGS Earthquake Hazards",
+          "provides": "Real-time GeoJSON feed of every globally detected earthquake. Magnitude, depth, time, region, tsunami advisories where applicable.",
+          "license": "Public domain (USGS Open Data)",
+          "frequency": "Continuous updates, 1-5 minute latency",
+          "citation": "U.S. Geological Survey, Earthquake Hazards Program, Real-time Feeds and Notifications. https://earthquake.usgs.gov/earthquakes/feed/"
+        },
+        "noaaGoes": {
+          "glyph": "GOES",
+          "name": "NOAA GOES-East/West",
+          "provides": "10-minute geostationary imagery of the Americas and the Pacific — basis of GIBS' GeoColor product. Also GLM lightning data (Geostationary Lightning Mapper).",
+          "license": "Public domain (NOAA Open Data)",
+          "frequency": "Continuous, frame every 10 minutes",
+          "citation": "NOAA STAR — GOES Image Viewer, National Environmental Satellite, Data, and Information Service (NESDIS). https://www.star.nesdis.noaa.gov/goes/"
+        },
+        "celestrak": {
+          "glyph": "CT",
+          "name": "CelesTrak",
+          "provides": "Public TLE archive of all operational satellites and tracked debris. Pre-defined categories (stations, visual, Starlink, GPS, Galileo, weather, science…).",
+          "license": "Public — derived from US Space Surveillance Network, redistributed by T.S. Kelso without usage restrictions",
+          "frequency": "Multiple times per day for active satellites, sporadic for debris",
+          "citation": "Kelso, T.S. (n.d.) CelesTrak — Two-Line Element Sets and Orbital Data. https://celestrak.org/"
+        },
+        "opensky": {
+          "glyph": "OS",
+          "name": "OpenSky Network",
+          "provides": "Real-time global ADS-B aircraft states, federating amateur receivers. Free REST API (rate-limited) + historical datasets for research.",
+          "license": "CC BY 4.0 for research, specific terms for commercial use",
+          "frequency": "Real-time (typical 1-30 seconds for aircraft in view)",
+          "citation": "Schäfer, M., Strohmeier, M., Lenders, V., Martinovic, I. and Wilhelm, M., 2014. Bringing up OpenSky: A large-scale ADS-B sensor network for research. In Proceedings of the 13th international symposium on Information processing in sensor networks (pp. 83-94). https://opensky-network.org/"
+        },
+        "openmeteo": {
+          "glyph": "OM",
+          "name": "Open-Meteo",
+          "provides": "Free weather API aggregating ECMWF, GFS, ICON, MeteoSwiss, JMA. Current conditions, 7-day forecast, standard WMO codes, hourly data with variable detail.",
+          "license": "CC BY 4.0",
+          "frequency": "Hourly updates, models refreshed 4 times daily",
+          "citation": "Open-Meteo Weather Forecast API. Zippenfenig, Patrick (2023). https://open-meteo.com/"
+        },
+        "rainviewer": {
+          "glyph": "RV",
+          "name": "RainViewer",
+          "provides": "Global mosaic of national weather radars (ARPA, MeteoFrance, NOAA, JMA, BoM). Tiles refreshed every 10 min with historical frames and 30-min nowcast.",
+          "license": "Free tier for non-commercial use + paid commercial tier",
+          "frequency": "Every 10 minutes",
+          "citation": "RainViewer Weather Radar Map. https://www.rainviewer.com/"
+        },
+        "wtiss": {
+          "glyph": "WTI",
+          "name": "wheretheiss.at",
+          "provides": "REST API for the live ISS position, with altitude, velocity, footprint, solar illumination. Based on public NORAD TLEs, SGP4 propagation.",
+          "license": "Free for public use, no key required, reasonable rate-limit",
+          "frequency": "On-demand (propagation is continuous server-side)",
+          "citation": "Where the ISS at? — Real-time ISS location API by Bill Shupp. https://wheretheiss.at/"
+        }
+      }
+    },
+    "extra": {
+      "sectionTitle": "Extras",
+      "sectionIntro": "A section that isn't really a layer but is part of EarthRadar's identity: a small tribute to its origins.",
+      "radarModeWhy": "Radar Mode is the phosphor-green monitor any cold-war buff recognises at first glance. A rotating sweep, a beep when an event enters the range. Technically useless — the same data is already on the main map — but it's the tribute to the phosphor-green canvas of the original radarApp project that EarthRadar grew out of. It's also beautiful. Keep it as an easter egg."
+    }
   },
   "about": {
     "title": "About EarthRadar",

@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] — 2026-05-10
+
+Feature release. La pagina `/education` smette di essere un placeholder e
+diventa l'hub divulgativo dell'app — cinque sezioni navigabili, ~5000 parole
+di contenuti scritti nella voce del blog «La Terra, addosso», tradotte in
+inglese mantenendo registro e metafore. Pipeline verde (lint + 355 test, +9
+nuovi smoke).
+
+### Added
+
+- **Pagina Educa completa** (`src/pages/Education.tsx`): cinque sezioni
+  hash-anchored (`#layers`, `#glossary`, `#tutorials`, `#sources`,
+  `#extra`) con sticky sidebar verticale su desktop e tab orizzontali
+  scrollabili su mobile/tablet. Lazy-loaded come chunk separato
+  (`Education-*.js` ≈ 16 kB / 4 kB gzip).
+- **Layer dell'app**: nove schede divulgative — Terremoti USGS, Satelliti
+  CelesTrak, ISS Live, Aerei OpenSky, Incendi NASA FIRMS, Eventi naturali
+  EONET, Mappe NASA GIBS, Radar precipitazioni RainViewer, Meteo
+  Open-Meteo. Ognuna con quattro blocchi: cosa è, da dove viene, come si
+  interpreta, limiti. Componente riusabile `LayerEducationCard.tsx`.
+- **Glossario**: ~25 termini espandibili con search case-insensitive,
+  ordinamento alfabetico, link Wikipedia opzionale. Termini coperti:
+  Apogeo/Perigeo, AOD, Bolide, Effemeride, Eccentricità, FRP, GNSS,
+  LEO/MEO/GEO/HEO, Hotspot, Inclinazione, Magnitudine apparente / scala
+  Richter, NORAD CAT ID, profondità ipocentrale, SGP4, Terminator, TLE,
+  Codici WMO, WMTS / WMS, ADS-B, Epoch, Periodo orbitale, Tsunami.
+  Componente `GlossaryItem.tsx` con accordion + aria-expanded.
+- **Tutorial**: quattro mini-guide pratiche con stepper numerato e
+  screenshot column con onError fallback. Tutorial: trovare la ISS,
+  capire un terremoto, identificare un satellite, vedere arrivare un
+  temporale. Componente `TutorialCard.tsx`. Cartella
+  `public/screenshots/edu/` come placeholder per gli asset PNG (drop-in,
+  niente rebuild necessario).
+- **Sorgenti dati**: 11 provider con licenza, frequenza di aggiornamento,
+  citation accademica espandibile (NASA Worldview/GIBS, EONET, FIRMS,
+  Visible Earth, USGS Earthquake, NOAA GOES, CelesTrak, OpenSky,
+  Open-Meteo, RainViewer, wheretheiss.at). Componente
+  `DataSourceCard.tsx`.
+- **Extra**: card Radar Mode tributo spostata qui dalla vecchia
+  Education legacy, con riga di contesto sul perché esiste.
+- **i18n IT/EN completa** per tutti i contenuti educativi: ~5000 parole
+  per lingua sotto `education.*`. La voce traduce le metafore concrete
+  del blog «La Terra, addosso» (NORAD 16882, antenne da venti euro,
+  zio col telescopio, in pigiama in cortile) preservandone tono e
+  ritmo anche in inglese.
+
+### Changed
+
+- `/education` non è più un placeholder. La vecchia card "Radar Mode
+  tributo" linkata direttamente sulla Education page è stata spostata
+  nella nuova sezione Extra con un paragrafo di motivazione.
+
+### Tests
+
+- 9 nuovi smoke test in `src/pages/education/Education.test.tsx`:
+  presenza delle 5 sezioni, 9 LayerCard, 11 DataSourceCard; glossary
+  search filtra correttamente; messaggio no-results su query
+  inesistente; tutti e 4 i blocchi educativi presenti in
+  `LayerEducationCard`; toggle aria-expanded di `GlossaryItem`;
+  step switching con aria-expanded coerente in `TutorialCard`;
+  citation `DataSourceCard` nascosta di default e svelata al click.
+- Suite passata da 346 → 355 test. Lint pulito.
+
+---
+
 ## [1.0.2] — 2026-05-04
 
 Hotfix UX: ripristina la parità di controlli fra vista 2D e vista 3D. Nessuna
