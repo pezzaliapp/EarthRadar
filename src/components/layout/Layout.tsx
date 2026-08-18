@@ -18,7 +18,7 @@ export default function Layout({ children }: Props) {
       </a>
       <Header />
       <DisclaimerBanner />
-      <main id="main" tabIndex={-1} className="flex-1 px-4 pb-28 pt-4 sm:px-6 lg:px-8 md:pb-6">
+      <main id="main" tabIndex={-1} className="pb-safe-nav flex-1 px-4 pt-4 sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
       <Footer />

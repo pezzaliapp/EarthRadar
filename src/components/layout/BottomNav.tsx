@@ -15,6 +15,15 @@ const items: { path: string; key: string; icon: ReactNode }[] = [
     ),
   },
   {
+    path: '/anomaly',
+    key: 'nav.anomaly',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M2 12h3l2-7 4 14 3-9 2 4h6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     path: '/education',
     key: 'nav.education',
     icon: (
@@ -51,21 +60,25 @@ const items: { path: string; key: string; icon: ReactNode }[] = [
 export default function BottomNav() {
   const { t } = useTranslation();
   return (
-    <nav className="safe-bottom fixed bottom-0 left-0 right-0 z-30 border-t border-space-500/30 bg-space-900/85 backdrop-blur-md md:hidden">
-      <div className="mx-auto grid max-w-6xl grid-cols-4">
+    <nav
+      className="bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-space-500/30 bg-space-900/85 backdrop-blur-md md:hidden"
+      aria-label="Primary mobile"
+      data-testid="bottom-nav"
+    >
+      <div className="mx-auto grid max-w-6xl grid-cols-5">
         {items.map((it) => (
           <NavLink
             key={it.path}
             to={it.path}
             end={it.path === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 px-2 py-2 text-[10px] font-mono uppercase tracking-wider ${
+              `flex min-h-[52px] flex-col items-center justify-center gap-1 px-1 py-2 text-[9px] font-mono uppercase tracking-wide ${
                 isActive ? 'text-cyan-glow' : 'text-space-300'
               }`
             }
           >
             {it.icon}
-            <span>{t(it.key)}</span>
+            <span className="w-full truncate text-center leading-none">{t(it.key)}</span>
           </NavLink>
         ))}
       </div>

@@ -3,7 +3,7 @@ import { meteorWatchHomeLink, cubeSatHomeLink } from '@/lib/deepLinkBuilder';
 
 export default function About() {
   const { t } = useTranslation();
-  const version = import.meta.env.VITE_APP_VERSION ?? '0.1.0';
+  const version = import.meta.env.VITE_APP_VERSION ?? '1.2.0';
 
   return (
     <div className="space-y-6">
