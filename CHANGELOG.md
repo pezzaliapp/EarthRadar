@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] — 2026-08-18
+
+Patch release. Corregge due bug post-deploy distinti. Nessuna nuova dipendenza,
+zero costi.
+
+### Fixed
+
+- **Home — «Invalid LatLng object: (NaN, NaN)»** (`src/lib/sgp4Lite.ts`,
+  `src/utils/coords.ts` + guardie nei layer/store). Causa alla radice:
+  `geodeticFromSatrec` restituiva `{lat, lon}` senza verificare `Number.isFinite`,
+  quindi un TLE stale/decaduto produceva coordinate `NaN` consegnate come oggetto
+  non-null; il consumer ISS (`smoothLat ?? null`) le lasciava passare perché
+  `NaN` non è `null`, e la guardia `smoothLat === null` non le intercettava →
+  `<Marker position={[NaN, NaN]}>` → eccezione Leaflet. Ora:
+  - la propagazione SGP4 ritorna `null` (mai coordinate non finite);
+  - nuova utility `coords.ts` (`isValidLat/Lon/LatLon`, `sanitizeCenter`,
+    `filterValidLatLng`) applicata a **tutti** i confini Leaflet: ISS, satelliti,
+    aerei, EONET, terminatore, `flyTo` della Home, centro `Map2D`;
+  - lo store rifiuta centri e posizioni GPS non validi (NaN, undefined, fuori
+    range) e sanitizza le coordinate legacy persistite da versioni precedenti;
+  - la mancata disponibilità/negazione/scadenza del GPS non manda più in crash
+    la Home: fallback sicuro (Reggio Emilia) o stato neutro.
+- **Route `/anomaly` → 404 su GitHub Pages** (`public/404.html`, `index.html`,
+  `src/lib/spaRedirect.ts`). L'accesso diretto o il refresh su una route React
+  (es. `/EarthRadar/anomaly`) restituiva il 404 di GitHub Pages: il server
+  statico non conosce la route e `navigateFallback` del service worker non può
+  intervenire prima che il SW sia attivo. Soluzione: fallback SPA standard per
+  GitHub Pages (tecnica spa-github-pages), che **mantiene gli URL puliti** e non
+  richiede alcuna modifica al router:
+  - `public/404.html` riscrive la route in `/EarthRadar/?/<route>` e ricarica
+    index.html (file reale, 200);
+  - uno snippet inline in `index.html` (eseguito prima del bundle) decodifica il
+    path pulito prima che React Router parta — nessun reload, nessun loop;
+  - logica pura testabile in `spaRedirect.ts`.
+  URL finale invariato: `https://www.alessandropezzali.it/EarthRadar/anomaly`.
+
 ## [1.2.1] — 2026-08-18
 
 Patch release. Correzione robusta dell'aggiornamento PWA: dopo una nuova

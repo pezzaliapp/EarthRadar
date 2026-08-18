@@ -11,6 +11,7 @@ import {
   type Satrec,
 } from '@/lib/sgp4Lite';
 import type { SatelliteRecord } from '@/services/celestrakApi';
+import { isValidLatLon, filterValidLatLng } from '@/utils/coords';
 
 /**
  * Overlay satelliti: marker propagati ogni 5s. Mostra SOLO i satelliti dentro la
@@ -105,7 +106,7 @@ export default function SatelliteLayer() {
     const d = decorated.find((x) => x.rec.noradId === selected.noradId);
     if (!d) return null;
     const samples = groundTrackSatrec(d.satrec, new Date(tick), 90, 30);
-    return samples.map((p) => [p.lat, p.lon] as [number, number]);
+    return filterValidLatLng(samples.map((p) => [p.lat, p.lon] as [number, number]));
   }, [decorated, selected, tick]);
 
   // ref usato solo per stabilità durante hot reload
@@ -116,7 +117,9 @@ export default function SatelliteLayer() {
 
   if (!enabled) return null;
 
-  const visible = bounds ? positions.filter((p) => bounds.contains([p.lat, p.lon])) : positions;
+  // Difensivo: scarta posizioni non valide (TLE stale) prima di Leaflet.
+  const finite = positions.filter((p) => isValidLatLon(p.lat, p.lon));
+  const visible = bounds ? finite.filter((p) => bounds.contains([p.lat, p.lon])) : finite;
 
   return (
     <>

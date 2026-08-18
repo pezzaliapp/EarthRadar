@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>EarthRadar</title>
+    <!--
+      GitHub Pages SPA fallback (tecnica spa-github-pages).
+
+      Quando il browser richiede DIRETTAMENTE una route React che il server
+      statico non conosce (es. /EarthRadar/anomaly, o un refresh su quella
+      route) e il service worker non è ancora attivo, GitHub Pages serve questo
+      404.html. Lo script riscrive l'URL in /EarthRadar/?/anomaly e ricarica
+      index.html (file reale, 200): lo snippet in index.html decodifica poi il
+      path pulito prima che React Router parta.
+
+      pathSegmentsToKeep = 1 → mantiene il segmento base "/EarthRadar/".
+      Nessun redirect loop: la riscrittura avviene una sola volta e converge
+      sempre su index.html. Nessuna dipendenza, nessun costo.
+    -->
+    <script>
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol +
+          '//' +
+          l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname
+            .split('/')
+            .slice(0, 1 + pathSegmentsToKeep)
+            .join('/') +
+          '/?/' +
+          l.pathname
+            .slice(1)
+            .split('/')
+            .slice(pathSegmentsToKeep)
+            .join('/')
+            .replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash,
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_GROUPS, type CelestrakGroup } from '@/services/celestrakGroups';
 import type { FirmsDayRange, FirmsSource } from '@/services/firmsApi';
+import { isValidLatLon, isValidLatLngTuple } from '@/utils/coords';
 
 /**
  * Identificatori dei layer dati. I layer GIBS usano gli stessi id di gibsLayers.ts.
@@ -257,7 +258,10 @@ export const useLayersStore = create<LayersState>()(
       setWeatherGridStepKm: (weatherGridStepKm) =>
         set({ weatherGridStepKm: Math.max(20, Math.min(500, weatherGridStepKm)) }),
       setSelectedWeatherCell: (selectedWeatherCell) => set({ selectedWeatherCell }),
-      setMapCenter: (mapCenter) => set({ mapCenter }),
+      // Ignora centri non validi (NaN/undefined/fuori range): mantiene l'ultimo
+      // centro valido invece di propagare coordinate rotte a Leaflet.
+      setMapCenter: (mapCenter) =>
+        set((s) => ({ mapCenter: isValidLatLngTuple(mapCenter) ? mapCenter : s.mapCenter })),
       setRainRadarFrameIndex: (rainRadarFrameIndex) =>
         set({ rainRadarFrameIndex: Math.max(0, rainRadarFrameIndex) }),
       setRainRadarPlaying: (rainRadarPlaying) => set({ rainRadarPlaying }),
@@ -276,7 +280,15 @@ export const useLayersStore = create<LayersState>()(
       setEonetSelectedEventId: (eonetSelectedEventId) => set({ eonetSelectedEventId }),
       setEonetStatus: (eonetStatus) => set({ eonetStatus }),
       setIssShowGroundTrack: (issShowGroundTrack) => set({ issShowGroundTrack }),
-      setUserLocationForPasses: (userLocationForPasses) => set({ userLocationForPasses }),
+      // Accetta solo coordinate valide oppure null (reset). Coordinate rotte
+      // (GPS negato/scaduto, valori legacy) non entrano mai nello store.
+      setUserLocationForPasses: (userLocationForPasses) =>
+        set({
+          userLocationForPasses:
+            userLocationForPasses && isValidLatLon(userLocationForPasses.lat, userLocationForPasses.lon)
+              ? userLocationForPasses
+              : null,
+        }),
       setFiresSource: (firesSource) => set({ firesSource }),
       setFiresDayRange: (firesDayRange) => set({ firesDayRange }),
       setSelectedFireId: (selectedFireId) => set({ selectedFireId }),
@@ -317,7 +329,12 @@ export const useLayersStore = create<LayersState>()(
           eonetDaysRange: p.eonetDaysRange ?? current.eonetDaysRange,
           eonetStatus: p.eonetStatus ?? current.eonetStatus,
           issShowGroundTrack: p.issShowGroundTrack ?? current.issShowGroundTrack,
-          userLocationForPasses: p.userLocationForPasses ?? current.userLocationForPasses,
+          // Sanitizza eventuali coordinate legacy non valide da versioni precedenti.
+          userLocationForPasses:
+            p.userLocationForPasses &&
+            isValidLatLon(p.userLocationForPasses.lat, p.userLocationForPasses.lon)
+              ? p.userLocationForPasses
+              : current.userLocationForPasses,
           firesSource: p.firesSource ?? current.firesSource,
           firesDayRange: p.firesDayRange ?? current.firesDayRange,
         };

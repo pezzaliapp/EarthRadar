@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Polyline, CircleMarker, Tooltip } from 'react-leaflet';
 import { terminator, subsolarPoint } from '@/lib/dayNightTerminator';
 import { useLayersStore } from '@/store/layersStore';
+import { isValidLatLngTuple, filterValidLatLng } from '@/utils/coords';
 
 /**
  * Overlay terminatore giorno/notte sulla mappa Leaflet.
@@ -21,12 +22,14 @@ export default function TerminatorOverlay() {
   const { line, sub } = useMemo(() => {
     const ts = tick * 60_000;
     return {
-      line: terminator(new Date(ts)),
+      // Difensivo: non passiamo mai coordinate non valide a Leaflet.
+      line: filterValidLatLng(terminator(new Date(ts))),
       sub: subsolarPoint(new Date(ts)),
     };
   }, [tick]);
 
   if (!enabled) return null;
+  if (line.length < 2) return null;
 
   return (
     <>
@@ -39,6 +42,7 @@ export default function TerminatorOverlay() {
           dashArray: '4 4',
         }}
       />
+      {isValidLatLngTuple(sub) && (
       <CircleMarker
         center={sub}
         radius={6}
@@ -53,6 +57,7 @@ export default function TerminatorOverlay() {
           ☀ subsolar point
         </Tooltip>
       </CircleMarker>
+      )}
     </>
   );
 }

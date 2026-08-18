@@ -17,6 +17,7 @@ import { useLayersStore } from '@/store/layersStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { activeGibsOverlays } from '@/services/gibsLayers';
 import { buildShareUrl } from '@/lib/buildShareUrl';
+import { isValidLatLon } from '@/utils/coords';
 import type { Quake } from '@/services/usgsQuakesApi';
 
 // satellite.js entra in un chunk separato — caricato solo quando l'utente
@@ -102,6 +103,8 @@ export default function Home() {
 
   const flyToQuake = useCallback((q: Quake) => {
     setSelectedId(q.id);
+    // Guardia: non passiamo mai coordinate non valide a Leaflet (flyTo).
+    if (!isValidLatLon(q.lat, q.lon)) return;
     setCenter([q.lat, q.lon]);
     const map = mapRef.current;
     if (!map) return;
