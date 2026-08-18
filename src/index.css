@@ -4,6 +4,9 @@
 
 :root {
   --vh: 1vh;
+  /* Altezza nominale della bottom navigation mobile (senza safe-area).
+   * Usata sia dalla barra sia dal padding di fondo del contenuto. */
+  --bottom-nav-h: 56px;
   color-scheme: dark;
 }
 
@@ -32,15 +35,22 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* IMPORTANTE: nessun `transform`/`filter`/`perspective` su body o #root.
+ * Un transform su un antenato crea un "containing block" per gli elementi
+ * `position: fixed`, che verrebbero così ancorati al body (alto quanto tutto
+ * il contenuto scrollabile) invece che alla viewport. Era la causa per cui la
+ * bottom navigation attraversava il centro dello schermo durante lo scroll.
+ * L'altezza a schermo pieno usa unità viewport moderne (dvh) con fallback. */
 body {
   min-height: 100vh;
   min-height: calc(var(--vh, 1vh) * 100);
-  transform: translateZ(0);
+  min-height: 100dvh;
 }
 
 #root {
   min-height: 100vh;
   min-height: calc(var(--vh, 1vh) * 100);
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -172,6 +182,29 @@ textarea:focus-visible,
 
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Bottom navigation mobile: aderente al fondo della viewport, con rispetto
+ * della safe-area su tutti i lati (notch/Dynamic Island in portrait, e i
+ * lati in landscape). Il padding-bottom garantisce che i tap-target non
+ * finiscano sotto la home-indicator iPhone. */
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Padding di fondo del contenuto scrollabile su mobile: lascia spazio per la
+ * bottom navigation + safe-area, così l'ultimo elemento resta raggiungibile e
+ * non viene coperto. Su desktop (≥768px) la barra sparisce e il padding torna
+ * normale. */
+.pb-safe-nav {
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 1rem);
+}
+@media (min-width: 768px) {
+  .pb-safe-nav {
+    padding-bottom: 1.5rem;
+  }
 }
 
 /* Touch target boost (Apple HIG / Material): su pointer "coarse" (touch)

@@ -20,7 +20,8 @@
     "events": "Eventi",
     "education": "Educa",
     "about": "Info",
-    "radar": "Radar"
+    "radar": "Radar",
+    "anomaly": "Anomalia"
   },
   "home": {
     "headline": "Cosa sta succedendo sulla Terra adesso?",
@@ -835,5 +836,127 @@
     "body": "Strumento divulgativo basato su dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo. NON sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria. Posizioni satellitari propagate da TLE pubblici (incertezza tipica km su orbite basse).",
     "accept": "Ho capito, continua",
     "short": "Strumento divulgativo. Non sostituisce sistemi operativi ufficiali."
+  },
+  "anomaly": {
+    "title": "Anomalia Sismica",
+    "subtitle": "Confrontare i dati, non le impressioni.",
+    "question": "L'attività sismica attuale è statisticamente diversa dalla storia recente?",
+    "intro": "Questa sezione confronta la sismicità osservata di recente con la distribuzione storica per verificare se ciò che vediamo rientra nella normale variabilità oppure rappresenta uno scostamento statisticamente insolito. Non è una previsione.",
+    "disclaimer": {
+      "primary": "EarthRadar non prevede terremoti e non è un sistema di allerta sismica. L'analisi confronta esclusivamente dati osservati e serie storiche per individuare eventuali scostamenti statistici.",
+      "secondary": "Anomalia Sismica è uno strumento informativo e statistico. Non costituisce previsione sismica, sistema di early warning, valutazione ufficiale del rischio o indicazione di protezione civile. Per informazioni ufficiali fare sempre riferimento agli enti competenti."
+    },
+    "controls": {
+      "window": "Finestra temporale",
+      "threshold": "Soglia di magnitudo",
+      "days": "{{n}} giorni",
+      "refresh": "Aggiorna"
+    },
+    "data": {
+      "updated": "Dati aggiornati: {{date}} UTC",
+      "cached": "Dati memorizzati localmente — ultimo aggiornamento: {{date}} UTC",
+      "offline": "OFFLINE — dati dell’ultimo aggiornamento disponibile",
+      "unavailable": "Dati temporaneamente non disponibili.",
+      "source": "Fonte: USGS Earthquake Hazards Program",
+      "loading": "Caricamento dati sismici…",
+      "retry": "Riprova"
+    },
+    "index": {
+      "title": "Scostamento dalla baseline",
+      "normal": {
+        "label": "Nella norma",
+        "desc": "Attività compatibile con la variabilità storica osservata."
+      },
+      "above_average": {
+        "label": "Superiore alla media",
+        "desc": "Attività superiore alla media storica ma ancora compatibile con normali oscillazioni statistiche."
+      },
+      "unusual": {
+        "label": "Statisticamente insolito",
+        "desc": "Scostamento significativo rispetto alla distribuzione storica osservata."
+      },
+      "insufficient": {
+        "label": "Dati insufficienti",
+        "desc": "Non esistono elementi sufficienti per una classificazione robusta."
+      },
+      "percentileNote": "Il valore corrente è al {{p}}° percentile della distribuzione storica.",
+      "lowCountCaution": "Conteggi attesi molto bassi per questa soglia: un solo evento in più sposta molto il risultato. Da leggere con particolare cautela."
+    },
+    "stats": {
+      "title": "Statistiche",
+      "current": "Eventi (finestra corrente)",
+      "mean": "Media storica",
+      "median": "Mediana storica",
+      "sd": "Deviazione standard",
+      "percentChange": "Variazione vs media",
+      "percentile": "Percentile storico",
+      "zscore": "z-score",
+      "zscoreNote": "Indicativo: la distribuzione dei conteggi è tipicamente asimmetrica.",
+      "insufficientSample": "Campione insufficiente per una valutazione statistica robusta.",
+      "sampleSize": "Campioni storici"
+    },
+    "energy": {
+      "title": "Energia sismica",
+      "intro": "Confronto relativo tra l'energia della finestra corrente e la media storica per una finestra equivalente. Un singolo grande terremoto domina l'energia totale.",
+      "current": "Finestra corrente",
+      "baseline": "Media storica",
+      "note": "L'energia serve a contestualizzare l'attività osservata; non è un indicatore predittivo."
+    },
+    "charts": {
+      "currentVsHistory": {
+        "title": "Attuale vs storico",
+        "intro": "Numero di eventi nella finestra corrente rispetto alla distribuzione storica (minimo, media, mediana, massimo)."
+      },
+      "annualTrend": {
+        "title": "Andamento storico",
+        "intro": "Numero di eventi per anno (M≥{{thr}}) nel periodo di baseline."
+      },
+      "magnitudeDistribution": {
+        "title": "Distribuzione magnitudo",
+        "intro": "Ripartizione per classe nella finestra corrente (M≥5.5) rispetto alla media storica per una finestra equivalente."
+      },
+      "current": "Attuale",
+      "baselineMean": "Media storica",
+      "min": "min",
+      "max": "max",
+      "mean": "media",
+      "median": "mediana",
+      "events": "eventi",
+      "year": "anno",
+      "noData": "Dati non disponibili per questo grafico."
+    },
+    "aftershock": {
+      "title": "Sequenze di aftershock",
+      "note": "Le sequenze di aftershock possono aumentare temporaneamente il numero di eventi osservati.",
+      "sequence": "Diagnostica: circa il {{pct}}% degli eventi della finestra ricade vicino all’evento maggiore (M{{mag}}) entro {{days}} giorni e {{km}} km. Possibile sequenza in corso.",
+      "noDeclustering": "Il catalogo non viene modificato: nessun evento è stato rimosso."
+    },
+    "howToRead": {
+      "title": "Come leggere questi dati",
+      "p1bold": "Più terremoti non significa automaticamente maggiore pericolo globale.",
+      "p1": "La sismicità terrestre presenta naturalmente periodi più attivi e periodi meno attivi. EarthRadar confronta l’attività corrente con la distribuzione storica per verificare se ciò che osserviamo rientra nella normale variabilità oppure rappresenta uno scostamento statisticamente insolito.",
+      "p2bold": "Correlazione temporale non significa relazione causale.",
+      "p2": "Terremoti avvenuti in continenti differenti non devono essere considerati collegati senza evidenza scientifica."
+    },
+    "method": {
+      "title": "Metodo",
+      "intro": "Da dove deriva il risultato mostrato.",
+      "source": "Fonte dati: {{source}}",
+      "baselinePeriod": "Periodo di baseline: {{start}} – {{end}}",
+      "window": "Finestra selezionata: {{n}} giorni",
+      "threshold": "Soglia di magnitudo: M≥{{thr}}",
+      "statsLine": "Statistiche: media, mediana, deviazione standard, percentile empirico (mid-rank) e z-score (accessorio).",
+      "classification": "Classificazione basata sul percentile empirico: sotto l’85° percentile = nella norma; tra 85° e 97.5° = superiore alla media; dal 97.5° in su = statisticamente insolito.",
+      "energy": "Energia: E = 10^(1.5·M + 4.8) joule (relazione di Gutenberg–Richter), solo a scopo di contesto.",
+      "clustering": "Clustering/aftershock: nessun declustering applicato; il catalogo resta integro, con nota informativa quando emerge una possibile sequenza.",
+      "limits": "Limiti: i campioni piccoli (es. M≥7) vanno letti con cautela; le finestre di 60 e 90 giorni si sovrappongono (autocorrelazione); la baseline copre 2006–2025.",
+      "updated": "Ultimo aggiornamento dei dati recenti: {{date}} UTC",
+      "reproduce": "Baseline riproducibile con: {{cmd}}"
+    },
+    "limits": {
+      "title": "Cosa si può e non si può concludere",
+      "can": "Si può dire se il numero di eventi recenti è alto, medio o basso rispetto alla storia recente.",
+      "cannot": "Non si può prevedere quando o dove avverrà il prossimo terremoto, né dedurre un pericolo imminente da uno scostamento statistico."
+    }
   }
 }

@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] — 2026-08-18
+
+Feature release. Nuova sezione **Anomalia Sismica** (`/anomaly`) e correzione
+strutturale definitiva della bottom navigation mobile. Zero nuove dipendenze,
+zero costi: la funzione usa esclusivamente dati pubblici e gratuiti USGS.
+
+### Added
+
+- **Anomalia Sismica** (`src/pages/SeismicAnomaly.tsx`): risponde
+  quantitativamente alla domanda «l'attività sismica attuale è statisticamente
+  diversa dalla storia recente?». Confronta la sismicità osservata (query live
+  USGS FDSN) con una baseline storica 2006–2025, senza mai forzare conclusioni
+  né prevedere terremoti. Quattro esiti: nella norma / superiore alla media /
+  statisticamente insolito / dati insufficienti.
+- **Baseline storica riproducibile** (`scripts/generateSeismicBaseline.mjs` →
+  `public/data/seismic-baseline.json`, ~10 KB): conteggi annuali, energia e
+  distribuzioni di finestre mobili (30/60/90 giorni) per soglie M≥5.5/6.0/7.0,
+  derivate solo da USGS. 9827 eventi M≥5.5 aggregati. Rigenerabile con
+  `npm run baseline`. Nessun declustering: catalogo integro, con nota aftershock.
+- **Libreria statistica** (`src/lib/seismicStats.ts`, `seismicAnalysis.ts`):
+  media, mediana, deviazione standard di popolazione, percentile empirico
+  (mid-rank), z-score accessorio, energia Gutenberg–Richter
+  (E = 10^(1.5·M+4.8) J), classificazione dello scostamento e diagnostica
+  (non distruttiva) delle sequenze di aftershock.
+- **Grafici SVG nativi** (`src/pages/anomaly/AnomalyCharts.tsx`): attuale vs
+  storico, andamento annuale, energia sismica, distribuzione per classe di
+  magnitudo. Nessuna libreria di charting.
+- **Pannelli educativi** «Come leggere questi dati» e «Metodo», più disclaimer
+  specifico di non-previsione. Contenuti IT/EN completi (chiave `anomaly.*`).
+- Nuova voce di navigazione **Anomalia** (header desktop + bottom nav mobile).
+
+### Fixed
+
+- **Bottom navigation mobile**: rimosso `transform: translateZ(0)` dal `body`
+  in `index.css`, che creava un containing block per gli elementi
+  `position: fixed` e faceva attraversare la barra al centro della viewport
+  durante lo scroll. La barra ora è realmente ancorata al fondo della viewport,
+  con `env(safe-area-inset-*)` su tutti i lati e unità viewport moderne
+  (`100dvh`) per l'altezza a schermo pieno. Padding contenuti safe-area aware
+  (`.pb-safe-nav`). Target touch ≥ 44 px, nessuna regressione desktop.
+
+### Notes
+
+- Vulnerabilità dipendenze invariate rispetto alla bonifica precedente (le
+  residue richiedono migrazioni major deliberatamente rimandate: React Router 7,
+  Vite 8, Vitest 4, vite-plugin-pwa 1).
+
 ## [1.1.0] — 2026-05-10
 
 Feature release. La pagina `/education` smette di essere un placeholder e

@@ -20,7 +20,8 @@
     "events": "Events",
     "education": "Learn",
     "about": "About",
-    "radar": "Radar"
+    "radar": "Radar",
+    "anomaly": "Anomaly"
   },
   "home": {
     "headline": "What's happening on Earth right now?",
@@ -835,5 +836,127 @@
     "body": "Educational tool based on public USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo data. It does NOT replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems. Satellite positions are propagated from public TLEs (typical km-level uncertainty in LEO).",
     "accept": "Understood, continue",
     "short": "Educational tool. Does not replace official operational systems."
+  },
+  "anomaly": {
+    "title": "Seismic Anomaly",
+    "subtitle": "Compare the data, not impressions.",
+    "question": "Is current seismic activity statistically different from recent history?",
+    "intro": "This section compares recently observed seismicity with the historical distribution to check whether what we see falls within normal variability or represents a statistically unusual deviation. It is not a forecast.",
+    "disclaimer": {
+      "primary": "EarthRadar does not predict earthquakes and is not a seismic early-warning system. The analysis compares only observed data and historical series to detect possible statistical deviations.",
+      "secondary": "Seismic Anomaly is an informational and statistical tool. It is not an earthquake forecast, an early-warning system, an official risk assessment or a civil-protection indication. For official information always refer to the competent authorities."
+    },
+    "controls": {
+      "window": "Time window",
+      "threshold": "Magnitude threshold",
+      "days": "{{n}} days",
+      "refresh": "Refresh"
+    },
+    "data": {
+      "updated": "Data updated: {{date}} UTC",
+      "cached": "Locally stored data — last update: {{date}} UTC",
+      "offline": "OFFLINE — data from the last available update",
+      "unavailable": "Data temporarily unavailable.",
+      "source": "Source: USGS Earthquake Hazards Program",
+      "loading": "Loading seismic data…",
+      "retry": "Retry"
+    },
+    "index": {
+      "title": "Deviation from baseline",
+      "normal": {
+        "label": "Within normal range",
+        "desc": "Activity consistent with the observed historical variability."
+      },
+      "above_average": {
+        "label": "Above average",
+        "desc": "Activity above the historical mean but still consistent with normal statistical fluctuations."
+      },
+      "unusual": {
+        "label": "Statistically unusual",
+        "desc": "Significant deviation from the observed historical distribution."
+      },
+      "insufficient": {
+        "label": "Insufficient data",
+        "desc": "There is not enough evidence for a robust classification."
+      },
+      "percentileNote": "The current value is at the {{p}}th percentile of the historical distribution.",
+      "lowCountCaution": "Expected counts are very low for this threshold: a single extra event shifts the result substantially. Read with particular caution."
+    },
+    "stats": {
+      "title": "Statistics",
+      "current": "Events (current window)",
+      "mean": "Historical mean",
+      "median": "Historical median",
+      "sd": "Standard deviation",
+      "percentChange": "Change vs mean",
+      "percentile": "Historical percentile",
+      "zscore": "z-score",
+      "zscoreNote": "Indicative only: the count distribution is typically skewed.",
+      "insufficientSample": "Sample too small for a robust statistical assessment.",
+      "sampleSize": "Historical samples"
+    },
+    "energy": {
+      "title": "Seismic energy",
+      "intro": "Relative comparison between the energy of the current window and the historical mean for an equivalent window. A single large earthquake dominates the total energy.",
+      "current": "Current window",
+      "baseline": "Historical mean",
+      "note": "Energy contextualizes observed activity; it is not a predictive indicator."
+    },
+    "charts": {
+      "currentVsHistory": {
+        "title": "Current vs historical",
+        "intro": "Number of events in the current window compared with the historical distribution (minimum, mean, median, maximum)."
+      },
+      "annualTrend": {
+        "title": "Historical trend",
+        "intro": "Number of events per year (M≥{{thr}}) over the baseline period."
+      },
+      "magnitudeDistribution": {
+        "title": "Magnitude distribution",
+        "intro": "Breakdown by class in the current window (M≥5.5) compared with the historical mean for an equivalent window."
+      },
+      "current": "Current",
+      "baselineMean": "Historical mean",
+      "min": "min",
+      "max": "max",
+      "mean": "mean",
+      "median": "median",
+      "events": "events",
+      "year": "year",
+      "noData": "No data available for this chart."
+    },
+    "aftershock": {
+      "title": "Aftershock sequences",
+      "note": "Aftershock sequences can temporarily increase the number of observed events.",
+      "sequence": "Diagnostic: about {{pct}}% of the window’s events fall near the largest event (M{{mag}}) within {{days}} days and {{km}} km. A sequence may be ongoing.",
+      "noDeclustering": "The catalog is not altered: no event has been removed."
+    },
+    "howToRead": {
+      "title": "How to read this data",
+      "p1bold": "More earthquakes does not automatically mean greater global danger.",
+      "p1": "Earth’s seismicity naturally has more active and less active periods. EarthRadar compares current activity with the historical distribution to check whether what we observe falls within normal variability or represents a statistically unusual deviation.",
+      "p2bold": "Temporal correlation does not mean a causal relationship.",
+      "p2": "Earthquakes occurring on different continents must not be considered connected without scientific evidence."
+    },
+    "method": {
+      "title": "Method",
+      "intro": "Where the result shown comes from.",
+      "source": "Data source: {{source}}",
+      "baselinePeriod": "Baseline period: {{start}} – {{end}}",
+      "window": "Selected window: {{n}} days",
+      "threshold": "Magnitude threshold: M≥{{thr}}",
+      "statsLine": "Statistics: mean, median, standard deviation, empirical percentile (mid-rank) and z-score (accessory).",
+      "classification": "Classification based on the empirical percentile: below the 85th percentile = within normal range; between 85th and 97.5th = above average; at or above the 97.5th = statistically unusual.",
+      "energy": "Energy: E = 10^(1.5·M + 4.8) joule (Gutenberg–Richter relation), for context only.",
+      "clustering": "Clustering/aftershocks: no declustering applied; the catalog stays intact, with an informational note when a possible sequence emerges.",
+      "limits": "Limits: small samples (e.g. M≥7) must be read with caution; the 60- and 90-day windows overlap (autocorrelation); the baseline covers 2006–2025.",
+      "updated": "Last update of recent data: {{date}} UTC",
+      "reproduce": "Baseline reproducible with: {{cmd}}"
+    },
+    "limits": {
+      "title": "What can and cannot be concluded",
+      "can": "It can tell whether the number of recent events is high, medium or low compared with recent history.",
+      "cannot": "It cannot predict when or where the next earthquake will occur, nor infer imminent danger from a statistical deviation."
+    }
   }
 }

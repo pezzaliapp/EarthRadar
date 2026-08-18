@@ -9,6 +9,7 @@ const Home = lazy(() => import('./pages/Home'));
 const About = lazy(() => import('./pages/About'));
 const Education = lazy(() => import('./pages/Education'));
 const RadarMode = lazy(() => import('./pages/RadarMode'));
+const SeismicAnomaly = lazy(() => import('./pages/SeismicAnomaly'));
 
 function PageFallback() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Suspense fallback={<PageFallback />}>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/anomaly" element={<SeismicAnomaly />} />
             <Route path="/education" element={<Education />} />
             <Route path="/radar-mode" element={<RadarMode />} />
             <Route path="/about" element={<About />} />
