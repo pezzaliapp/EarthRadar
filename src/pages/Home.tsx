@@ -113,14 +113,25 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="space-y-5">
-      <section className="glass-strong space-y-3 p-5 shadow-glow sm:p-6">
+    <div className="space-y-4 sm:space-y-5">
+      {/* Hero compatto su smartphone: su mobile mostriamo solo titolo (piccolo)
+          + toggle vista, così la mappa e i suoi controlli sono subito visibili
+          senza scorrere. Intro e avviso "fase 1" restano da sm+ (tablet/desktop). */}
+      <section className="glass-strong space-y-2 p-4 shadow-glow sm:space-y-3 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-space-50 sm:text-3xl">
-              {t('home.headline')}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-space-200">{t('home.intro')}</p>
+          <div className="min-w-0">
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-xl font-semibold leading-tight tracking-tight text-space-50 sm:text-2xl md:text-3xl">
+                {t('home.headline')}
+              </h1>
+              {/* Toggle vista inline col titolo su mobile (una riga risparmiata). */}
+              <div className="shrink-0 sm:hidden">
+                <ViewModeToggle />
+              </div>
+            </div>
+            <p className="mt-2 hidden max-w-2xl text-sm text-space-200 sm:block">
+              {t('home.intro')}
+            </p>
           </div>
           <div className="hidden items-center gap-2 sm:flex">
             <ShareButton
@@ -140,17 +151,16 @@ export default function Home() {
             <ViewModeToggle />
           </div>
         </div>
-        <div className="rounded-xl border border-cyan-glow/30 bg-cyan-glow/5 px-4 py-2.5 text-xs text-cyan-glow">
+        <div className="hidden rounded-xl border border-cyan-glow/30 bg-cyan-glow/5 px-4 py-2.5 text-xs text-cyan-glow sm:block">
           {t('home.phase1Notice')}
-        </div>
-        <div className="sm:hidden">
-          <ViewModeToggle />
         </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-3">
-          <div className="relative" style={{ height: 'min(70vh, 560px)' }}>
+          {/* Mobile: mappa più bassa (62vh) così mappa + controlli overlay stanno
+              sopra la piega su iPhone portrait. Desktop/tablet invariati (70vh). */}
+          <div className="relative h-[min(62vh,560px)] sm:h-[min(70vh,560px)]">
             {is3D ? (
               <Suspense fallback={<div className="glass h-full w-full p-4 text-sm text-space-300">{t('home.globeLoading')}</div>}>
                 <Globe3D />

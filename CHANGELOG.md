@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.4] — 2026-08-18
+
+Patch release. Ottimizzazione UX Home «map-first» su smartphone portrait.
+Nessuna nuova dipendenza, zero costi, nessuna modifica a Anomalia/routing/PWA/
+coordinate/bottom navigation.
+
+### Changed
+
+- **Home compatta su smartphone** (`src/pages/Home.tsx`): l'hero (titolo grande
+  + paragrafo intro + banner «fase 1») era alto ~200 px e spingeva la mappa
+  sotto la piega, costringendo a scorrere per raggiungere mappa e controlli. Ora
+  su mobile l'hero mostra solo il **titolo (più piccolo) con il toggle 2D/3D
+  inline**; intro e avviso «fase 1» restano visibili da `sm+` (tablet/desktop,
+  esperienza invariata). L'altezza della mappa passa a **62vh su mobile** (era
+  70vh: su iOS Safari il 70vh è calcolato sul viewport "large" ed eccedeva lo
+  spazio visibile) restando **70vh su desktop**. Risultato: su iPhone portrait
+  mappa e controlli overlay (zoom, «apri pannello layer», chip radar) sono
+  immediatamente visibili senza scorrere.
+- Il pannello RainViewer resta **collassato di default** su smartphone (chip
+  «🌧 Radar pioggia», introdotto in 1.2.3), confermato dai test.
+
 ## [1.2.3] — 2026-08-18
 
 Patch release. Ottimizzazione UX mobile del pannello radar precipitazioni.
