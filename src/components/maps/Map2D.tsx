@@ -8,6 +8,7 @@ import OverlaysAttributionPanel from './OverlaysAttributionPanel';
 import TerminatorOverlay from '@/components/overlays/TerminatorOverlay';
 import { useLayersStore } from '@/store/layersStore';
 import { useTranslation } from '@/i18n';
+import { sanitizeCenter } from '@/utils/coords';
 
 interface Props {
   /** Centro iniziale [lat, lon]. Default Reggio Emilia (omaggio al progetto originale). */
@@ -63,7 +64,7 @@ export default function Map2D({
       aria-label={language === 'it' ? 'Mappa interattiva 2D' : 'Interactive 2D map'}
     >
       <MapContainer
-        center={initialCenter}
+        center={sanitizeCenter(initialCenter)}
         zoom={initialZoom}
         worldCopyJump
         scrollWheelZoom

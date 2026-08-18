@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useEonet } from '@/hooks/useEonet';
 import { eonetCategorySpec } from '@/services/eonetCategories';
+import { isValidLatLon } from '@/utils/coords';
 import type {
   EonetEvent,
   EonetGeometry,
@@ -146,7 +147,7 @@ export default function EonetLayer() {
               />
             )}
 
-            {last && (
+            {last && isValidLatLon(last.coordinates[1], last.coordinates[0]) && (
               <Marker
                 position={[last.coordinates[1], last.coordinates[0]]}
                 icon={makeEventIcon({ emoji: cat.emoji, color: cat.color, selected: isSelected })}

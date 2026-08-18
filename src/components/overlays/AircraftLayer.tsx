@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useAircraft } from '@/hooks/useAircraft';
 import { haversineKm, projectAhead } from '@/utils/geo';
+import { isValidLatLon } from '@/utils/coords';
 import type { Aircraft } from '@/services/openSkyApi';
 
 /**
@@ -71,7 +72,11 @@ export default function AircraftLayer() {
   // Filtro: viewport + onGround + cap
   const visible: Aircraft[] = useMemo(() => {
     if (!enabled || data.length === 0) return [];
-    let filtered = showOnGround ? data : data.filter((a) => !a.onGround);
+    // Difensivo: scarta velivoli con coordinate non valide (OpenSky può
+    // restituire lat/lon null) prima di passarle a Leaflet.
+    let filtered = (showOnGround ? data : data.filter((a) => !a.onGround)).filter((a) =>
+      isValidLatLon(a.lat, a.lon),
+    );
     if (bounds) {
       filtered = filtered.filter((a) => bounds.contains([a.lat, a.lon]));
     }

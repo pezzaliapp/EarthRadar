@@ -233,9 +233,15 @@ function geodeticFromSatrec(sat: Satrec, date: Date): PropagatedPosition | null 
   const gmst = satellite.gstime(date);
   const geo = satellite.eciToGeodetic(pos, gmst);
   const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+  const lat = satellite.degreesLat(geo.latitude);
+  const lon = satellite.degreesLong(geo.longitude);
+  // Un TLE stale/decaduto può far restituire alla propagazione valori non
+  // finiti: NON consegniamo mai coordinate NaN ai consumer (mappa Leaflet).
+  // Trattiamo la propagazione degenere come fallimento → null.
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   return {
-    lat: satellite.degreesLat(geo.latitude),
-    lon: satellite.degreesLong(geo.longitude),
+    lat,
+    lon,
     alt: geo.height,
     velocityKms: speed,
     t: date.getTime(),

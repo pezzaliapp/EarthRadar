@@ -171,3 +171,40 @@ describe('orbitalElements', () => {
     expect(el.semiMajorAxisKm).toBeLessThan(6900);
   });
 });
+
+describe('propagazione: mai coordinate NaN (fix Invalid LatLng)', () => {
+  it('propagate ritorna coordinate finite in range oppure null, mai NaN', () => {
+    const base = Date.parse('2026-04-25T12:00:00Z');
+    // Campiona molte date (incluse epoche lontane dove un TLE può degenerare).
+    for (let i = 0; i < 200; i++) {
+      const d = new Date(base + i * 6 * 3600_000); // ogni 6 h per ~50 giorni
+      const p = propagate(ISS_TLE, d);
+      if (p !== null) {
+        expect(Number.isFinite(p.lat)).toBe(true);
+        expect(Number.isFinite(p.lon)).toBe(true);
+        expect(p.lat).toBeGreaterThanOrEqual(-90);
+        expect(p.lat).toBeLessThanOrEqual(90);
+        expect(p.lon).toBeGreaterThanOrEqual(-180);
+        expect(p.lon).toBeLessThanOrEqual(180);
+      }
+    }
+  });
+
+  it('groundTrackSatrec non contiene mai punti NaN', () => {
+    const sat = tleToSatrec(ISS_TLE);
+    expect(sat).not.toBeNull();
+    const track = groundTrackSatrec(sat!, new Date(Date.parse('2026-04-25T12:00:00Z')), 90, 30);
+    for (const p of track) {
+      expect(Number.isFinite(p.lat)).toBe(true);
+      expect(Number.isFinite(p.lon)).toBe(true);
+    }
+  });
+
+  it('propagateSatrec su satrec valido resta finito', () => {
+    const sat = tleToSatrec(ISS_TLE);
+    const p = propagateSatrec(sat!, new Date(Date.parse('2026-04-25T12:00:00Z')));
+    expect(p).not.toBeNull();
+    expect(Number.isFinite(p!.lat)).toBe(true);
+    expect(Number.isFinite(p!.lon)).toBe(true);
+  });
+});

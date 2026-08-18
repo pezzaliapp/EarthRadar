@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useIss } from '@/hooks/useIss';
 import { groundTrackSatrec } from '@/lib/sgp4Lite';
+import { isValidLat, isValidLon, filterValidLatLng } from '@/utils/coords';
 
 /**
  * Overlay ISS dedicato (separato da SatelliteLayer).
@@ -59,12 +60,15 @@ export default function IssLayer() {
     const now = new Date();
     const past = groundTrackSatrec(satrec, new Date(now.getTime() - 45 * 60_000), 45, 30);
     const fut = groundTrackSatrec(satrec, now, 45, 30);
-    const all = [...past, ...fut].map((p) => [p.lat, p.lon] as [number, number]);
+    const all = filterValidLatLng([...past, ...fut].map((p) => [p.lat, p.lon] as [number, number]));
     return all.length > 1 ? all : null;
   }, [enabled, showGroundTrack, satrec]);
 
   if (!enabled) return null;
-  if (smoothLat === null || smoothLon === null) return null;
+  // Guardia difensiva: la propagazione con TLE stale può restituire NaN, che
+  // supererebbe un controllo solo su `null`. I type-guard restringono anche il
+  // tipo (number | null → number) per il Marker.
+  if (!isValidLat(smoothLat) || !isValidLon(smoothLon)) return null;
 
   const visibility = live?.visibility ?? 'daylight';
   const icon = makeIssIcon({ visibility, selected: false });
