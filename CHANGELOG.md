@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] — 2026-08-18
+
+Patch release. Correzione robusta dell'aggiornamento PWA: dopo una nuova
+release gli utenti non restano più bloccati con HTML/chunk/service worker di
+versioni diverse. Nessuna nuova dipendenza, zero costi.
+
+### Fixed
+
+- **Aggiornamento PWA / chunk obsoleti** (`src/lib/pwaUpdate.ts`,
+  `src/main.tsx`, `src/components/common/ErrorBoundary.tsx`): il service worker
+  `autoUpdate` (skipWaiting + clientsClaim + cleanupOutdatedCaches) poteva
+  attivare la nuova build a metà sessione e cancellare la vecchia precache
+  mentre la pagina "vecchia" era ancora in esecuzione; il successivo import di
+  un chunk con hash precedente falliva con «Importing a module script failed»
+  (iOS Safari) / «Failed to fetch dynamically imported module» (Chromium),
+  perché il `registerSW.js` iniettato registrava soltanto il SW senza alcuna
+  logica di reload. Ora:
+  - al `controllerchange` (nuovo SW che prende il controllo) viene eseguito
+    **un solo reload controllato** — mai al primo install;
+  - gli errori di import dinamico innescano **un solo reload** guardato da
+    `sessionStorage` con cooldown anti-loop; un normale errore runtime NON
+    provoca reload;
+  - `ErrorBoundary` distingue i chunk obsoleti (placeholder «Aggiornamento…» +
+    reload automatico) dai crash reali (UI d'errore invariata);
+  - viene inoltre gestito l'evento Vite `vite:preloadError`.
+  L'aggiornamento resta automatico e non richiede all'utente di svuotare cache,
+  reinstallare la PWA o cancellare Safari. Nessuna perdita della modalità
+  offline.
+
 ## [1.2.0] — 2026-08-18
 
 Feature release. Nuova sezione **Anomalia Sismica** (`/anomaly`) e correzione
