@@ -1,7 +1,7 @@
 {
   "name": "earthradar",
   "private": true,
-  "version": "1.2.2",
+  "version": "1.2.3",
   "type": "module",
   "description": "EarthRadar — La Terra dallo spazio in tempo reale. PWA con layer USGS, NASA, OpenSky, Open-Meteo. Sister app di MeteorWatch e CubeSat Constellation.",
   "author": "Alessandro Pezzali <pezzalialessandro@gmail.com>",

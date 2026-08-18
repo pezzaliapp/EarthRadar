@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.3] — 2026-08-18
+
+Patch release. Ottimizzazione UX mobile del pannello radar precipitazioni.
+Nessuna nuova dipendenza, zero costi, nessuna funzionalità rimossa.
+
+### Changed
+
+- **RainViewer collassabile su smartphone** (`src/components/panels/RainRadarControls.tsx`):
+  in portrait (e in landscape a schermo basso) il pannello «Radar precipitazioni
+  RainViewer» partiva sempre aperto e copriva gran parte della mappa,
+  costringendo a scorrere o a ruotare il telefono. Ora su smartphone parte
+  **collassato** come chip compatto «🌧 Radar pioggia» ancorato in basso a
+  destra; un tocco apre il pannello completo (play/pausa, timeline, tempo
+  relativo, opacità, **attribuzione RainViewer obbligatoria**), richiudibile con
+  ✕. Su tablet/desktop resta aperto di default (esperienza invariata). Il chip
+  è in basso a destra, il pulsante «Apri pannello layer» in alto a destra: non
+  si sovrappongono. Touch target ≥ 44 px, safe-area rispettata, larghezza
+  vincolata alla viewport (`max-w-[calc(100%-1rem)]`, nessun overflow X),
+  nessuna interferenza con la bottom navigation. Nessuna funzione RainViewer
+  rimossa.
+
 ## [1.2.2] — 2026-08-18
 
 Patch release. Corregge due bug post-deploy distinti. Nessuna nuova dipendenza,
