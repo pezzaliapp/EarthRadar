@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useRadarFrames } from '@/hooks/useRadarFrames';
@@ -7,12 +7,27 @@ import { frameLabel } from '@/services/rainviewerApi';
 const FRAME_INTERVAL_MS = 600;
 
 /**
- * Controllo temporale RainViewer (slider + play/pause + opacity).
- * Pensato per essere posizionato absolute dentro il container .relative della mappa,
- * angolo basso-destra. Si nasconde se il layer non è attivo o se non ci sono frame.
+ * Su smartphone (portrait o landscape a schermo basso) il pannello parte
+ * COLLASSATO come chip compatto, così la mappa resta immediatamente leggibile.
+ * Su tablet/desktop resta aperto di default (esperienza invariata).
+ */
+function defaultOpen(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+  const compact = window.matchMedia('(max-width: 767px), (max-height: 450px)').matches;
+  return !compact;
+}
+
+/**
+ * Controllo temporale RainViewer (slider + play/pause + opacity + attribuzione).
+ * Posizionato absolute dentro il container .relative della mappa, angolo
+ * basso-destra. Su smartphone è collassabile in un chip "Radar pioggia" per non
+ * coprire la mappa; il pulsante "Apri pannello layer" resta in alto a destra,
+ * quindi i due controlli non si sovrappongono. Si nasconde se il layer non è
+ * attivo o se non ci sono frame.
  */
 export default function RainRadarControls() {
   const { t, language } = useTranslation();
+  const [open, setOpen] = useState(defaultOpen);
   const enabled = useLayersStore((s) => s.overlays.rainviewer?.enabled ?? false);
   const frameIndex = useLayersStore((s) => s.rainRadarFrameIndex);
   const setFrameIndex = useLayersStore((s) => s.setRainRadarFrameIndex);
@@ -50,20 +65,49 @@ export default function RainRadarControls() {
 
   if (!enabled) return null;
 
+  // Stato collassato (default su smartphone): chip compatto sulla mappa.
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-expanded={false}
+        aria-controls="rainradar-panel"
+        className="safe-bottom pointer-events-auto absolute bottom-2 right-2 z-[400] inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-cyan-glow/40 bg-space-900/85 px-3 py-2 text-[11px] font-mono uppercase tracking-wider text-cyan-glow shadow-glow backdrop-blur-md"
+      >
+        <span aria-hidden>🌧</span>
+        <span>{t('radar.chip')}</span>
+      </button>
+    );
+  }
+
   return (
-    <div className="safe-bottom pointer-events-auto absolute bottom-2 right-2 z-[400] w-[min(92vw,360px)]">
+    <div
+      id="rainradar-panel"
+      className="safe-bottom pointer-events-auto absolute bottom-2 right-2 z-[400] w-[min(92vw,360px)] max-w-[calc(100%-1rem)]"
+    >
       <div className="glass-strong space-y-2 p-3 text-[11px] text-space-50">
         <div className="flex items-center justify-between gap-2">
           <span className="label text-cyan-glow">{t('radar.title')}</span>
-          {loading && (
-            <span className="font-mono text-space-300">{t('radar.loading')}</span>
-          )}
+          <div className="flex items-center gap-2">
+            {loading && (
+              <span className="font-mono text-space-300">{t('radar.loading')}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label={t('radar.collapse')}
+              className="grid h-11 w-11 place-items-center rounded-lg text-space-200 hover:text-cyan-glow sm:h-7 sm:w-7"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="btn-primary h-7 w-12 px-0 text-[11px]"
+            className="btn-primary h-11 w-14 px-0 text-[11px] sm:h-7 sm:w-12"
             onClick={() => setPlaying(!playing)}
             disabled={!frames || frames.all.length === 0}
             aria-pressed={playing}

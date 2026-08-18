@@ -148,7 +148,9 @@
     "opacity": "Opacity",
     "attribution": "Radar by RainViewer.com",
     "noFrames": "No frames available",
-    "loading": "Loading radar…"
+    "loading": "Loading radar…",
+    "chip": "Rain radar",
+    "collapse": "Close radar"
   },
   "wmo": {
     "clear": "Clear",
