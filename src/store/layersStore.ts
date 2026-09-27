@@ -50,8 +50,10 @@ export interface SelectedSatellite {
 
 /** Identificazione dell'aereo selezionato (per il pannello dettaglio). */
 export interface SelectedAircraft {
-  icao24: string;
-  callsign: string;
+  /** `id` del gateway: ICAO per gli aerei normali, token anonimo per LADD/PIA. */
+  id: string;
+  /** Etichetta già pronta per la UI (mai ricostruita da dati oscurati). */
+  label: string;
 }
 
 /** Cella meteo selezionata: direzione cardinale relativa al centro. */
@@ -71,8 +73,6 @@ interface LayersState {
 
   /** Mostra anche gli aerei a terra (default false). */
   aircraftShowOnGround: boolean;
-  /** Mostra il vettore velocità (proiezione 30 s). */
-  aircraftShowVelocityVectors: boolean;
   /** Aereo selezionato per il pannello dettaglio. */
   selectedAircraft: SelectedAircraft | null;
 
@@ -133,7 +133,6 @@ interface LayersState {
 
   /** Toggles per la sezione aerei. */
   setAircraftShowOnGround: (v: boolean) => void;
-  setAircraftShowVelocityVectors: (v: boolean) => void;
   /** Seleziona / deseleziona l'aereo mostrato nel pannello dettaglio. */
   setSelectedAircraft: (sel: SelectedAircraft | null) => void;
 
@@ -203,7 +202,6 @@ export const useLayersStore = create<LayersState>()(
       satelliteGroups: [...DEFAULT_GROUPS],
       selectedSatellite: null,
       aircraftShowOnGround: false,
-      aircraftShowVelocityVectors: true,
       selectedAircraft: null,
       weatherGridStepKm: 100,
       selectedWeatherCell: null,
@@ -252,8 +250,6 @@ export const useLayersStore = create<LayersState>()(
       setSatelliteGroups: (groups) => set({ satelliteGroups: [...groups] }),
       setSelectedSatellite: (selectedSatellite) => set({ selectedSatellite }),
       setAircraftShowOnGround: (aircraftShowOnGround) => set({ aircraftShowOnGround }),
-      setAircraftShowVelocityVectors: (aircraftShowVelocityVectors) =>
-        set({ aircraftShowVelocityVectors }),
       setSelectedAircraft: (selectedAircraft) => set({ selectedAircraft }),
       setWeatherGridStepKm: (weatherGridStepKm) =>
         set({ weatherGridStepKm: Math.max(20, Math.min(500, weatherGridStepKm)) }),
@@ -301,7 +297,6 @@ export const useLayersStore = create<LayersState>()(
         overlays: s.overlays,
         satelliteGroups: s.satelliteGroups,
         aircraftShowOnGround: s.aircraftShowOnGround,
-        aircraftShowVelocityVectors: s.aircraftShowVelocityVectors,
         weatherGridStepKm: s.weatherGridStepKm,
         rainRadarOpacity: s.rainRadarOpacity,
         eonetActiveCategories: s.eonetActiveCategories,
@@ -321,8 +316,6 @@ export const useLayersStore = create<LayersState>()(
           overlays: { ...current.overlays, ...(p.overlays ?? {}) },
           satelliteGroups: p.satelliteGroups ?? current.satelliteGroups,
           aircraftShowOnGround: p.aircraftShowOnGround ?? current.aircraftShowOnGround,
-          aircraftShowVelocityVectors:
-            p.aircraftShowVelocityVectors ?? current.aircraftShowVelocityVectors,
           weatherGridStepKm: p.weatherGridStepKm ?? current.weatherGridStepKm,
           rainRadarOpacity: p.rainRadarOpacity ?? current.rainRadarOpacity,
           eonetActiveCategories: p.eonetActiveCategories ?? current.eonetActiveCategories,

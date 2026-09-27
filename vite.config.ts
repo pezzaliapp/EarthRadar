@@ -116,15 +116,11 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Traffico aereo (gateway EarthRadar): mai in cache nel Service Worker.
+          // La cache vive nel gateway; offline non si mostrano posizioni vecchie.
           {
-            urlPattern: /^https:\/\/opensky-network\.org\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'opensky-states',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+            urlPattern: /^https:\/\/aircraft\.alessandropezzali\.it\//,
+            handler: 'NetworkOnly',
           },
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\//,

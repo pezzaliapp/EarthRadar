@@ -7,12 +7,12 @@ import LayerPanel from '@/components/panels/LayerPanel';
 import QuakeListing from '@/components/panels/QuakeListing';
 import ViewModeToggle from '@/components/layout/ViewModeToggle';
 import SourceBadge from '@/components/common/SourceBadge';
+import AircraftStatusBadge from '@/components/common/AircraftStatusBadge';
 import ShareButton from '@/components/common/ShareButton';
 import { useQuakes } from '@/hooks/useQuakes';
-import { useAircraft } from '@/hooks/useAircraft';
+import { useAircraftDemand, useAircraftView } from '@/hooks/useAircraftFeed';
 import { useApplyIncomingDeepLink } from '@/hooks/useApplyIncomingDeepLink';
 import { useNotificationsRunner } from '@/hooks/useNotifications';
-import { remainingCooldownMs } from '@/services/openSkyRateLimit';
 import { useLayersStore } from '@/store/layersStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { activeGibsOverlays } from '@/services/gibsLayers';
@@ -24,7 +24,7 @@ import type { Quake } from '@/services/usgsQuakesApi';
 // attiva il layer satelliti o seleziona un satellite.
 const SatelliteLayer = lazy(() => import('@/components/overlays/SatelliteLayer'));
 const SatelliteDetailPanel = lazy(() => import('@/components/panels/SatelliteDetailPanel'));
-// Aerei: stesso pattern (chunk OpenSky a parte).
+// Aerei: stesso pattern (chunk dedicato; dati dal gateway EarthRadar).
 const AircraftLayer = lazy(() => import('@/components/overlays/AircraftLayer'));
 const AircraftDetailPanel = lazy(() => import('@/components/panels/AircraftDetailPanel'));
 // Meteo + Radar: chunk indipendenti, caricati al toggle.
@@ -99,7 +99,12 @@ export default function Home() {
   const activeGibsCount = activeGibsOverlays(overlays).length;
   const show2DOnlyBanner = is3D && (activeGibsCount > 0 || lightningEnabled || radarEnabled);
 
-  const aircraft = useAircraft(aircraftEnabled);
+  // Traffico aereo: la Home è l'unico punto che pilota il poller condiviso
+  // (2D e 3D leggono lo stesso store). Centro = area osservata (mapCenter,
+  // aggiornato dalla mappa 2D a fine pan e dal globo 3D a camera ferma).
+  const mapCenter = useLayersStore((s) => s.mapCenter);
+  useAircraftDemand('home', aircraftEnabled, mapCenter[0], mapCenter[1]);
+  const aircraftView = useAircraftView();
 
   const flyToQuake = useCallback((q: Quake) => {
     setSelectedId(q.id);
@@ -253,17 +258,7 @@ export default function Home() {
                 fetchedAt={quakeFetchedAt}
                 language={language}
               />
-              {aircraftEnabled && (
-                <SourceBadge
-                  sourceLabel="OpenSky"
-                  source={aircraft.source}
-                  loading={aircraft.loading}
-                  error={aircraft.error}
-                  fetchedAt={aircraft.fetchedAt}
-                  cooldownMs={aircraft.rateLimit ? remainingCooldownMs(aircraft.rateLimit) : 0}
-                  language={language}
-                />
-              )}
+              {aircraftEnabled && <AircraftStatusBadge view={aircraftView} language={language} />}
             </div>
             <button
               type="button"

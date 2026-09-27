@@ -54,21 +54,6 @@ export function pointAtDistance(
   return { lat: phi2 * RAD, lon: lonOut };
 }
 
-/**
- * Proietta un punto lat/lon di `seconds` secondi avanti, dato heading e velocità in m/s.
- * Wrapper di `pointAtDistance`: calcola la distanza in km dalla velocità.
- */
-export function projectAhead(
-  lat: number,
-  lon: number,
-  headingDeg: number,
-  speedMs: number,
-  seconds: number,
-): { lat: number; lon: number } {
-  const distKm = (speedMs * seconds) / 1000;
-  return pointAtDistance(lat, lon, headingDeg, distKm);
-}
-
 /** Le 8 direzioni cardinali / intercardinali. Bearing 0 = N. */
 export const COMPASS_8: Array<{ key: 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW'; bearingDeg: number }> = [
   { key: 'N', bearingDeg: 0 },

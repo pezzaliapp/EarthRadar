@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+Traffico aereo reale tramite il gateway EarthRadar (`https://aircraft.alessandropezzali.it`,
+provider FlyItalyADSB, CC BY-SA 4.0). Il browser non conosce il provider né alcuna chiave.
+
+### Changed
+
+- **Aerei: un solo poller condiviso** (`services/aircraftPoller.ts` + `store/aircraftStore.ts`)
+  al posto delle 5 istanze indipendenti di `useAircraft` (Home, Globe3D, AircraftLayer,
+  AircraftDetailPanel, RadarMode). Una richiesta alla volta, ogni 30 s, raggio 150 NM attorno
+  all'area osservata; nessuna richiesta con layer spento o pagina nascosta; `Retry-After`
+  rispettato (mai prima di 30 s).
+- **Globo 3D**: simbolo aereo leggero orientato sulla rotta reale al posto dei cilindri;
+  rotta assente → anello neutro; quota reale, nessun ripiego a 11 000 m; dimensione legata
+  alla quota della camera. Movimento solo come transizione grafica di 1,5 s tra due posizioni
+  reali ricevute, mai oltre l'ultima.
+- **Badge** `FLYITALYADSB · LIVE` solo con dati freschi; dati stale mostrati come tali;
+  senza dati "Traffico aereo temporaneamente non disponibile" (nessun fallback).
+- **LADD/PIA**: solo l'id anonimo del gateway, pannello "Aeromobile riservato".
+- Il globo 3D ora aggiorna il centro mappa a camera ferma (1 s): lo usano aerei e meteo.
+
+### Fixed
+
+- La vista iniziale del globo 3D non veniva applicata (effetto eseguito prima del montaggio
+  del globo): il globo partiva da (0, 0).
+
+### Removed
+
+- Chiamate browser a OpenSky, rate limiter e fallback vuoto `opensky-empty.json`.
+- Vettori velocità a 30 s (proiezione della posizione futura) e relativo toggle.
+
 ## [1.2.4] — 2026-08-18
 
 Patch release. Ottimizzazione UX Home «map-first» su smartphone portrait.

@@ -19,7 +19,7 @@ export const LAYERS: LayerEntry[] = [
   { id: 'quakes', icon: '🌍', sourceHref: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/' },
   { id: 'satellites', icon: '🛰️', sourceHref: 'https://celestrak.org/' },
   { id: 'iss', icon: '🚀', sourceHref: 'https://wheretheiss.at/' },
-  { id: 'aircraft', icon: '✈️', sourceHref: 'https://opensky-network.org/' },
+  { id: 'aircraft', icon: '✈️', sourceHref: 'https://flyitalyadsb.com/' },
   { id: 'fires', icon: '🔥', sourceHref: 'https://firms.modaps.eosdis.nasa.gov/' },
   { id: 'eonet', icon: '🌪️', sourceHref: 'https://eonet.gsfc.nasa.gov/' },
   { id: 'gibs', icon: '☁️', sourceHref: 'https://gibs.earthdata.nasa.gov/' },
