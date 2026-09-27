@@ -2,27 +2,28 @@ import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { useAircraft } from '@/hooks/useAircraft';
+import { useAircraftView } from '@/hooks/useAircraftFeed';
+import { aircraftTitle } from '@/lib/aircraftFormat';
+import { renderAltitude } from '@/lib/aircraftMotion';
 import { buildShareUrl } from '@/lib/buildShareUrl';
 import ShareButton from '@/components/common/ShareButton';
-import type { Aircraft } from '@/services/openSkyApi';
+import type { GatewayAircraft } from '@/services/aircraftGatewayApi';
 
 /**
- * Pannello dettaglio aereo. Visibile quando `selectedAircraft` è set.
- * Pesca il record corrente dall'hook `useAircraft` (poll 30 s) — quindi i numeri
- * si aggiornano live finché l'aereo è ancora tracciato.
+ * Pannello dettaglio aereo. Legge dallo store condiviso del gateway (nessuna
+ * richiesta propria): i valori si aggiornano a ogni nuova fotografia reale.
+ * Campo assente = "—", mai un valore stimato.
  */
 export default function AircraftDetailPanel() {
   const { t, language } = useTranslation();
-  const enabled = useLayersStore((s) => s.overlays.aircraft?.enabled ?? false);
   const selected = useLayersStore((s) => s.selectedAircraft);
   const setSelected = useLayersStore((s) => s.setSelectedAircraft);
-  const { data } = useAircraft(enabled);
+  const { aircraft, snapshot } = useAircraftView();
 
-  const record: Aircraft | null = useMemo(() => {
+  const record: GatewayAircraft | null = useMemo(() => {
     if (!selected) return null;
-    return data.find((a) => a.icao24 === selected.icao24) ?? null;
-  }, [data, selected]);
+    return aircraft.find((a) => a.id === selected.id) ?? null;
+  }, [aircraft, selected]);
 
   if (!selected) return null;
 
@@ -31,7 +32,7 @@ export default function AircraftDetailPanel() {
       <aside className="glass-strong space-y-3 p-4 text-sm">
         <Header
           title={t('aircraft.detailTitle')}
-          subtitle={selected.callsign || selected.icao24}
+          subtitle={selected.label}
           onClose={() => setSelected(null)}
         />
         <p className="text-space-300">{t('aircraft.outOfView')}</p>
@@ -39,18 +40,31 @@ export default function AircraftDetailPanel() {
     );
   }
 
-  const altBaroKm = record.baroAltM != null ? record.baroAltM / 1000 : null;
-  const altGeoKm = record.geoAltM != null ? record.geoAltM / 1000 : null;
-  const velKmh = record.velocityMs != null ? record.velocityMs * 3.6 : null;
-  const velKt = record.velocityMs != null ? record.velocityMs * 1.94384 : null;
-  const vertFpm = record.verticalRateMs != null ? record.verticalRateMs * 196.85 : null;
-  const fr24 = `https://www.flightradar24.com/data/aircraft/${record.icao24}`;
+  const title = aircraftTitle(record, language);
+  const alt = renderAltitude(record);
+  const fmtKm = (m: number | null) => (m !== null ? `${(m / 1000).toFixed(1)} km` : '—');
+  const velKmh = record.groundSpeedMs !== null ? record.groundSpeedMs * 3.6 : null;
+  const velKt = record.groundSpeedMs !== null ? record.groundSpeedMs * 1.94384 : null;
+  const vertFpm = record.verticalRateMs !== null ? record.verticalRateMs * 196.85 : null;
+  // Istante della posizione: tempo del provider meno l'età della posizione (entrambi reali).
+  const positionTime =
+    snapshot?.providerTime != null && record.positionAgeS !== null
+      ? snapshot.providerTime - record.positionAgeS * 1000
+      : null;
+  const fmtTime = (ms: number) =>
+    new Date(ms).toLocaleTimeString(language === 'it' ? 'it-IT' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'UTC',
+    }) + ' UTC';
+  const dash = '—';
 
   return (
     <aside className="glass-strong space-y-3 p-4 text-sm">
       <Header
         title={t('aircraft.detailTitle')}
-        subtitle={record.callsign || record.icao24}
+        subtitle={title}
         onClose={() => setSelected(null)}
       />
 
@@ -64,54 +78,69 @@ export default function AircraftDetailPanel() {
         >
           {record.onGround ? `🛬 ${t('aircraft.onGround')}` : `✈ ${t('aircraft.inFlight')}`}
         </span>
+        {record.privacyRestricted && (
+          <span className="chip border-space-500/40 text-space-200">
+            🔒 {t('aircraft.restricted')}
+          </span>
+        )}
         {record.squawk && (
           <span className="chip border-magenta-glow/40 text-magenta-glow">
             SQWK {record.squawk}
           </span>
         )}
+        {record.emergency && (
+          <span className="chip border-risk-high/40 text-risk-high">⚠ {record.emergency}</span>
+        )}
       </div>
 
+      {record.privacyRestricted && (
+        <p className="text-[11px] text-space-300">{t('aircraft.restrictedHint')}</p>
+      )}
+
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
-        <dt className="label">{t('aircraft.icao24')}</dt>
-        <dd className="font-mono text-space-50">{record.icao24}</dd>
+        {!record.privacyRestricted && (
+          <>
+            <dt className="label">{t('aircraft.callsign')}</dt>
+            <dd className="font-mono text-space-50">{record.callsign ?? dash}</dd>
 
-        <dt className="label">{t('aircraft.callsign')}</dt>
-        <dd className="font-mono text-space-50">{record.callsign || '—'}</dd>
+            <dt className="label">{t('aircraft.registration')}</dt>
+            <dd className="font-mono text-space-50">{record.registration ?? dash}</dd>
+          </>
+        )}
 
-        <dt className="label">{t('aircraft.country')}</dt>
-        <dd className="font-mono text-space-50">{record.originCountry || '—'}</dd>
+        <dt className="label">{t('aircraft.type')}</dt>
+        <dd className="font-mono text-space-50">{record.typeCode ?? dash}</dd>
 
         <dt className="label">{t('aircraft.altBaro')}</dt>
-        <dd className="font-mono text-space-50">{altBaroKm != null ? `${altBaroKm.toFixed(1)} km` : '—'}</dd>
+        <dd className="font-mono text-space-50">
+          {alt.kind === 'ground' ? t('aircraft.onGround') : fmtKm(record.altBaroM)}
+        </dd>
 
         <dt className="label">{t('aircraft.altGeo')}</dt>
-        <dd className="font-mono text-space-50">{altGeoKm != null ? `${altGeoKm.toFixed(1)} km` : '—'}</dd>
+        <dd className="font-mono text-space-50">
+          {alt.kind === 'ground' ? t('aircraft.onGround') : fmtKm(record.altGeomM)}
+        </dd>
 
         <dt className="label">{t('aircraft.velocity')}</dt>
         <dd className="font-mono text-space-50">
-          {velKmh != null && velKt != null
+          {velKmh !== null && velKt !== null
             ? `${velKmh.toFixed(0)} km/h · ${velKt.toFixed(0)} kt`
-            : '—'}
+            : dash}
         </dd>
 
         <dt className="label">{t('aircraft.heading')}</dt>
         <dd className="font-mono text-space-50">
-          {record.headingDeg != null ? `${record.headingDeg.toFixed(0)}°` : '—'}
+          {record.trackDeg !== null ? `${record.trackDeg.toFixed(0)}°` : dash}
         </dd>
 
         <dt className="label">{t('aircraft.verticalRate')}</dt>
         <dd className="font-mono text-space-50">
-          {vertFpm != null ? `${vertFpm.toFixed(0)} ft/min` : '—'}
+          {vertFpm !== null ? `${vertFpm.toFixed(0)} ft/min` : dash}
         </dd>
 
         <dt className="label">{t('aircraft.lastContact')}</dt>
         <dd className="font-mono text-space-50">
-          {record.lastContactSec
-            ? new Date(record.lastContactSec * 1000).toLocaleTimeString(
-                language === 'it' ? 'it-IT' : 'en-US',
-                { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' },
-              ) + ' UTC'
-            : '—'}
+          {positionTime !== null ? fmtTime(positionTime) : dash}
         </dd>
       </dl>
 
@@ -119,16 +148,23 @@ export default function AircraftDetailPanel() {
         {record.lat.toFixed(3)}°, {record.lon.toFixed(3)}°
       </div>
 
-      <a className="btn-primary w-full" href={fr24} target="_blank" rel="noreferrer">
-        ✈ {t('aircraft.openFr24')} ↗
-      </a>
+      {!record.privacyRestricted && record.icao24 && (
+        <a
+          className="btn-primary w-full"
+          href={`https://www.flightradar24.com/data/aircraft/${record.icao24}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          ✈ {t('aircraft.openFr24')} ↗
+        </a>
+      )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-space-300">⚠ {t('aircraft.incertitude')}</p>
         <ShareButton
-          ariaLabel={`${t('share.ariaLabel')} — ${record.callsign ?? record.icao24}`}
+          ariaLabel={`${t('share.ariaLabel')} — ${title}`}
           getPayload={() => ({
-            title: `EarthRadar — ${record.callsign ?? record.icao24}`,
+            title: `EarthRadar — ${title}`,
             text: 'Live aircraft tracking',
             url: buildShareUrl({
               lat: record.lat,
@@ -139,6 +175,14 @@ export default function AircraftDetailPanel() {
           })}
         />
       </div>
+
+      {snapshot?.provider.attribution && (
+        <p className="text-[10px] text-space-300">
+          <a className="underline" href={snapshot.provider.url} target="_blank" rel="noreferrer">
+            {snapshot.provider.attribution}
+          </a>
+        </p>
+      )}
     </aside>
   );
 }

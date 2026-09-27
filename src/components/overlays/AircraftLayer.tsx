@@ -1,39 +1,44 @@
 import { useMemo, useState } from 'react';
-import { Marker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import { Marker, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
-import { useAircraft } from '@/hooks/useAircraft';
-import { haversineKm, projectAhead } from '@/utils/geo';
+import { useAircraftView } from '@/hooks/useAircraftFeed';
+import { aircraftTitle } from '@/lib/aircraftFormat';
+import { renderAltitude, renderHeadingDeg } from '@/lib/aircraftMotion';
+import { haversineKm } from '@/utils/geo';
 import { isValidLatLon } from '@/utils/coords';
-import type { Aircraft } from '@/services/openSkyApi';
+import type { GatewayAircraft } from '@/services/aircraftGatewayApi';
 
 /**
- * Overlay aerei OpenSky:
- *  - marker ✈️ (divIcon SVG) ruotato sul track reale
- *  - vettore velocità: polyline 30s di proiezione lineare
- *  - viewport filter via map.getBounds()
- *  - cap a 500 aerei più vicini al centro mappa quando il viewport è popolato
- *  - diff update naturale via React key={icao24}
+ * Overlay aerei 2D (Leaflet), dati dallo store condiviso del gateway:
+ *  - marker ✈️ ruotato sulla rotta reale; rotta assente → simbolo neutro
+ *  - solo posizioni ricevute: nessun vettore/proiezione in avanti
+ *  - viewport filter via map.getBounds(), cap ai 500 più vicini al centro
+ *  - diff update naturale via React key={id}
  */
 
 const VIEWPORT_CAP = 500;
-const VECTOR_SECONDS = 30;
 
 interface PlaneIconOpts {
-  headingDeg: number;
+  headingDeg: number | null;
   selected: boolean;
   onGround: boolean;
 }
 
-/** Icon SVG ruotata. Manteniamo HTML inline per evitare un dep. */
+/** Icona SVG: aereo ruotato se la rotta è nota, altrimenti anello senza verso. */
 function makePlaneIcon({ headingDeg, selected, onGround }: PlaneIconOpts): L.DivIcon {
   const color = onGround ? '#9aa3c9' : selected ? '#ff5cd0' : '#5cf0ff';
   const glow = selected ? '0 0 14px rgba(255,92,208,0.85)' : '0 0 8px rgba(92,240,255,0.55)';
+  const shape =
+    headingDeg === null
+      ? `<circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2.5" />`
+      : `<path fill="currentColor" d="M12 2 L13.5 11 L22 13 L13.5 14 L12 22 L10.5 14 L2 13 L10.5 11 Z" />`;
+  const rotate = headingDeg === null ? '' : `transform: rotate(${headingDeg}deg);`;
   const html = `
-    <div style="transform: rotate(${headingDeg}deg); width:22px; height:22px; display:grid; place-items:center;">
+    <div style="${rotate} width:22px; height:22px; display:grid; place-items:center;">
       <svg viewBox="0 0 24 24" width="22" height="22" style="filter: drop-shadow(${glow}); color:${color}" aria-hidden>
-        <path fill="currentColor" d="M12 2 L13.5 11 L22 13 L13.5 14 L12 22 L10.5 14 L2 13 L10.5 11 Z" />
+        ${shape}
       </svg>
     </div>`;
   return L.divIcon({
@@ -47,12 +52,11 @@ function makePlaneIcon({ headingDeg, selected, onGround }: PlaneIconOpts): L.Div
 export default function AircraftLayer() {
   const enabled = useLayersStore((s) => s.overlays.aircraft?.enabled ?? false);
   const showOnGround = useLayersStore((s) => s.aircraftShowOnGround);
-  const showVectors = useLayersStore((s) => s.aircraftShowVelocityVectors);
   const opacity = useLayersStore((s) => s.overlays.aircraft?.opacity ?? 1);
   const selected = useLayersStore((s) => s.selectedAircraft);
   const setSelected = useLayersStore((s) => s.setSelectedAircraft);
-  const { t } = useTranslation();
-  const { data } = useAircraft(enabled);
+  const { t, language } = useTranslation();
+  const { aircraft: data } = useAircraftView();
 
   const map = useMap();
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(() => (map ? map.getBounds() : null));
@@ -70,10 +74,8 @@ export default function AircraftLayer() {
   });
 
   // Filtro: viewport + onGround + cap
-  const visible: Aircraft[] = useMemo(() => {
+  const visible: GatewayAircraft[] = useMemo(() => {
     if (!enabled || data.length === 0) return [];
-    // Difensivo: scarta velivoli con coordinate non valide (OpenSky può
-    // restituire lat/lon null) prima di passarle a Leaflet.
     let filtered = (showOnGround ? data : data.filter((a) => !a.onGround)).filter((a) =>
       isValidLatLon(a.lat, a.lon),
     );
@@ -95,60 +97,48 @@ export default function AircraftLayer() {
   return (
     <>
       {visible.map((a) => {
-        const heading = a.headingDeg ?? 0;
-        const isSelected = selected?.icao24 === a.icao24;
-        const icon = makePlaneIcon({ headingDeg: heading, selected: isSelected, onGround: a.onGround });
+        const isSelected = selected?.id === a.id;
+        const icon = makePlaneIcon({
+          headingDeg: renderHeadingDeg(a),
+          selected: isSelected,
+          onGround: a.onGround,
+        });
+        const title = aircraftTitle(a, language);
+        const alt = renderAltitude(a);
         return (
           <Marker
-            key={a.icao24}
+            key={a.id}
             position={[a.lat, a.lon]}
             icon={icon}
             opacity={opacity}
             eventHandlers={{
-              click: () => setSelected({ icao24: a.icao24, callsign: a.callsign }),
+              click: () => setSelected({ id: a.id, label: title }),
             }}
           >
             <Tooltip direction="top" offset={[0, -10]} sticky>
               <div className="text-[11px] leading-tight">
-                <div className="font-semibold" style={{ color: isSelected ? '#ff5cd0' : '#5cf0ff' }}>
-                  {a.callsign || a.icao24} <span className="text-space-300">· {a.originCountry}</span>
+                <div
+                  className="font-semibold"
+                  style={{ color: isSelected ? '#ff5cd0' : '#5cf0ff' }}
+                >
+                  {title}
+                  {a.typeCode && <span className="text-space-300"> · {a.typeCode}</span>}
                 </div>
                 <div className="font-mono text-space-200">
-                  {t('aircraft.tooltipAlt')} {a.baroAltM ? `${(a.baroAltM / 1000).toFixed(1)} km` : '—'} ·{' '}
-                  {t('aircraft.tooltipVel')} {a.velocityMs ? `${(a.velocityMs * 3.6).toFixed(0)} km/h` : '—'}
+                  {t('aircraft.tooltipAlt')}{' '}
+                  {alt.kind === 'ground'
+                    ? t('aircraft.onGround')
+                    : alt.meters !== null
+                      ? `${(alt.meters / 1000).toFixed(1)} km`
+                      : '—'}{' '}
+                  · {t('aircraft.tooltipVel')}{' '}
+                  {a.groundSpeedMs !== null ? `${(a.groundSpeedMs * 3.6).toFixed(0)} km/h` : '—'}
                 </div>
               </div>
             </Tooltip>
-            {showVectors && a.velocityMs && a.velocityMs > 0 && a.headingDeg !== null && !a.onGround && (
-              <VelocityVector aircraft={a} />
-            )}
           </Marker>
         );
       })}
     </>
-  );
-}
-
-function VelocityVector({ aircraft }: { aircraft: Aircraft }) {
-  if (aircraft.velocityMs === null || aircraft.headingDeg === null) return null;
-  const proj = projectAhead(
-    aircraft.lat,
-    aircraft.lon,
-    aircraft.headingDeg,
-    aircraft.velocityMs,
-    VECTOR_SECONDS,
-  );
-  return (
-    <Polyline
-      positions={[
-        [aircraft.lat, aircraft.lon],
-        [proj.lat, proj.lon],
-      ]}
-      pathOptions={{
-        color: '#5cf0ff',
-        weight: 1.4,
-        opacity: 0.6,
-      }}
-    />
   );
 }

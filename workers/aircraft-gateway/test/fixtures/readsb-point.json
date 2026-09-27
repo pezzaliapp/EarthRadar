@@ -1,0 +1,122 @@
+{
+  "ac": [
+    {
+      "hex": "4CA87C",
+      "type": "adsb_icao",
+      "flight": "TEST123 ",
+      "r": "EI-TST",
+      "t": "A320",
+      "alt_baro": 37000,
+      "alt_geom": 37550,
+      "gs": 450.2,
+      "track": 92.4,
+      "true_heading": 95.1,
+      "baro_rate": -64,
+      "geom_rate": -32,
+      "squawk": "2341",
+      "emergency": "none",
+      "category": "A3",
+      "lat": 45.123456789,
+      "lon": 9.87654321,
+      "seen_pos": 1.234,
+      "seen": 0.4,
+      "dbFlags": 0,
+      "rssi": -12.3,
+      "messages": 1234
+    },
+    {
+      "hex": "3c1234",
+      "type": "adsb_icao",
+      "flight": "PRIV01  ",
+      "r": "D-PRIV",
+      "t": "C25B",
+      "alt_baro": 12000,
+      "true_heading": 180,
+      "lat": 45.5,
+      "lon": 10.5,
+      "seen_pos": 2,
+      "seen": 1,
+      "dbFlags": 8
+    },
+    {
+      "hex": "a0b1c2",
+      "type": "adsb_icao",
+      "flight": "PIA0001 ",
+      "r": "N-PIA",
+      "alt_baro": 30000,
+      "lat": 44.9,
+      "lon": 11.1,
+      "seen_pos": 3,
+      "seen": 1,
+      "dbFlags": 4
+    },
+    {
+      "hex": "39df19",
+      "type": "mlat",
+      "flight": "FHXYZ   ",
+      "r": "F-HXYZ",
+      "t": "P28A",
+      "alt_baro": 7400,
+      "calc_track": 342,
+      "mag_heading": 10,
+      "lat": 45.3508,
+      "lon": 4.199949,
+      "seen_pos": 6.368,
+      "seen": 0.6
+    },
+    {
+      "hex": "~2a0f11",
+      "type": "tisb_other",
+      "alt_baro": "ground",
+      "gs": 12,
+      "lat": 45.63,
+      "lon": 8.72,
+      "seen_pos": 4,
+      "seen": 4
+    },
+    {
+      "hex": "4d2222",
+      "type": "adsb_icao",
+      "flight": "NOALT   ",
+      "mag_heading": 270,
+      "lat": 46.0,
+      "lon": 9.0,
+      "seen_pos": 5,
+      "seen": 1
+    },
+    {
+      "hex": "4d3333",
+      "type": "adsb_icao",
+      "flight": "STALE   ",
+      "alt_baro": 20000,
+      "lat": 46.1,
+      "lon": 9.1,
+      "seen_pos": 95,
+      "seen": 2
+    },
+    {
+      "hex": "4d4444",
+      "type": "mode_s",
+      "alt_baro": 5000,
+      "seen": 1
+    },
+    {
+      "hex": "not-hex",
+      "lat": 45,
+      "lon": 9,
+      "seen_pos": 1
+    },
+    {
+      "hex": "4CA87C",
+      "type": "adsb_icao",
+      "lat": 45.2,
+      "lon": 9.9,
+      "seen_pos": 1
+    }
+  ],
+  "msg": "No error",
+  "now": 1790510015501,
+  "total": 10,
+  "ctime": 1790510015501,
+  "ptime": 4
+}

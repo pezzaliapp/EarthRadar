@@ -1,17 +1,15 @@
 import { formatRelativeTime } from '@/lib/quakeFormatters';
 import type { CacheSource } from '@/lib/apiCache';
 
-export type BadgeSource = CacheSource | 'pending' | 'saturated';
+export type BadgeSource = CacheSource | 'pending';
 
 interface Props {
-  /** Etichetta della sorgente (es. 'USGS', 'OpenSky'). */
+  /** Etichetta della sorgente (es. 'USGS'). */
   sourceLabel: string;
   source: BadgeSource;
   loading: boolean;
   error?: string | null;
   fetchedAt?: number | null;
-  /** Quando `source === 'saturated'`, ms al ritorno. */
-  cooldownMs?: number;
   language: 'it' | 'en';
 }
 
@@ -21,7 +19,6 @@ interface Props {
  *   fresh   → "Aggiornato 5s fa"     (verde)
  *   stale   → "Cache stantia"        (giallo)
  *   fallback→ "Fallback offline"     (giallo)
- *   saturated → "Fonte saturata, ritento tra Xm" (giallo, chiarificazione 3)
  *   error   → "Errore: …"            (rosso)
  */
 export default function SourceBadge({
@@ -30,12 +27,11 @@ export default function SourceBadge({
   loading,
   error,
   fetchedAt,
-  cooldownMs,
   language,
 }: Props) {
   let label = '';
   let cls = 'border-space-500/40 text-space-300';
-  let pulse = loading;
+  const pulse = loading;
 
   if (loading && source === 'pending') {
     label = language === 'it' ? `Caricamento ${sourceLabel}…` : `Loading ${sourceLabel}…`;
@@ -43,14 +39,6 @@ export default function SourceBadge({
   } else if (error) {
     label = language === 'it' ? `${sourceLabel} · Errore` : `${sourceLabel} · Error`;
     cls = 'border-risk-high/40 text-risk-high';
-  } else if (source === 'saturated') {
-    const minutes = Math.max(1, Math.ceil((cooldownMs ?? 0) / 60_000));
-    label =
-      language === 'it'
-        ? `${sourceLabel} · Fonte saturata, ritento tra ${minutes} min`
-        : `${sourceLabel} · Source saturated, retrying in ${minutes} min`;
-    cls = 'border-risk-mid/40 text-risk-mid';
-    pulse = true;
   } else if (source === 'fresh') {
     label =
       `${sourceLabel} · ` +

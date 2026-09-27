@@ -49,7 +49,7 @@ describe('Home — hero compatto / map-first mobile', () => {
     expect(intro).not.toBeNull();
     expect(intro?.textContent).toMatch(/combinati in un'unica vista live/i);
 
-    const notice = screen.getByText(/Fase 1 attiva/i);
+    const notice = screen.getByText(/aerei reali \(FlyItalyADSB\)/i);
     expect(notice.className).toContain('hidden');
     expect(notice.className).toContain('sm:block');
   });

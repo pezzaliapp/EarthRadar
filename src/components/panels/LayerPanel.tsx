@@ -197,7 +197,7 @@ function SatellitesRow() {
 }
 
 /**
- * Riga "Aerei" con sotto-toggles per a-terra e vettori velocità.
+ * Riga "Aerei" con sotto-toggle per gli aerei a terra.
  */
 function AircraftRow() {
   const { t } = useTranslation();
@@ -205,9 +205,7 @@ function AircraftRow() {
   const setOverlayEnabled = useLayersStore((s) => s.setOverlayEnabled);
   const setOpacity = useLayersStore((s) => s.setOpacity);
   const showOnGround = useLayersStore((s) => s.aircraftShowOnGround);
-  const showVectors = useLayersStore((s) => s.aircraftShowVelocityVectors);
   const setShowOnGround = useLayersStore((s) => s.setAircraftShowOnGround);
-  const setShowVectors = useLayersStore((s) => s.setAircraftShowVelocityVectors);
   const enabled = overlays.aircraft?.enabled ?? false;
   const opacity = overlays.aircraft?.opacity ?? 1;
   return (
@@ -243,15 +241,6 @@ function AircraftRow() {
               className="h-3.5 w-3.5 accent-cyan-glow"
             />
             <span>{t('aircraft.showOnGround')}</span>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-[11px] text-space-200">
-            <input
-              type="checkbox"
-              checked={showVectors}
-              onChange={(e) => setShowVectors(e.target.checked)}
-              className="h-3.5 w-3.5 accent-cyan-glow"
-            />
-            <span>{t('aircraft.showVectors')}</span>
           </label>
         </div>
       )}

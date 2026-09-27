@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/i18n';
 import { useQuakes } from '@/hooks/useQuakes';
 import { useSatellites } from '@/hooks/useSatellites';
-import { useAircraft } from '@/hooks/useAircraft';
+import { useAircraftDemand, useAircraftView } from '@/hooks/useAircraftFeed';
 import { useLayersStore } from '@/store/layersStore';
 import { propagateSatrec, tleToSatrec, type Satrec } from '@/lib/sgp4Lite';
 import {
@@ -61,7 +61,9 @@ export default function RadarMode() {
   // ---------- Sorgenti dati ----------
   const quakes = useQuakes('all_day');
   const satellites = useSatellites(RADAR_GROUPS);
-  const aircraft = useAircraft(aircraftEnabled);
+  // Stesso poller condiviso della Home: domanda centrata sul centro radar.
+  useAircraftDemand('radar', aircraftEnabled, center.lat, center.lon);
+  const aircraft = { data: useAircraftView().aircraft };
 
   // Pre-parse dei satrec una volta sola per record (non ad ogni frame).
   const satHandles = useMemo<SatHandle[]>(() => {
@@ -340,21 +342,28 @@ export default function RadarMode() {
         const polar = toPolar(center.lat, center.lon, ac.lat, ac.lon, range.km);
         if (!polar.inRange) continue;
         const { x, y } = polarToCanvas(polar.bearingDeg, polar.rangeNorm, cx, cy, R);
-        const heading = ac.headingDeg ?? 0;
-        const rad = ((heading - 90) * Math.PI) / 180;
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(rad);
-        ctx.beginPath();
-        ctx.moveTo(6, 0);
-        ctx.lineTo(-4, -3);
-        ctx.lineTo(-4, 3);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 220, 92, 0.95)';
-        ctx.fill();
+        if (ac.trackDeg === null) {
+          // Rotta ignota: cerchio senza verso, nessuna direzione inventata.
+          ctx.beginPath();
+          ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 220, 92, 0.95)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        } else {
+          ctx.rotate(((ac.trackDeg - 90) * Math.PI) / 180);
+          ctx.beginPath();
+          ctx.moveTo(6, 0);
+          ctx.lineTo(-4, -3);
+          ctx.lineTo(-4, 3);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(255, 220, 92, 0.95)';
+          ctx.fill();
+        }
         ctx.restore();
         if (audioEnabled && !reducedMotion) {
-          const id = `a:${ac.icao24}`;
+          const id = `a:${ac.id}`;
           if (!pingedRef.current.has(id) && isSwept(polar.bearingDeg, prev, cur)) {
             pingedRef.current.add(id);
             playPing();

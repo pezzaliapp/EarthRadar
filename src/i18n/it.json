@@ -25,8 +25,8 @@
   },
   "home": {
     "headline": "Cosa sta succedendo sulla Terra adesso?",
-    "intro": "Dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky e Open-Meteo combinati in un'unica vista live.",
-    "phase1Notice": "Fase 1 attiva: terremoti USGS live + tile NASA GIBS commutabili + terminatore. Restano da aggiungere satelliti, aerei, meteo, FIRMS, EONET, ISS.",
+    "intro": "Dati pubblici USGS, NASA, NOAA, CelesTrak, FlyItalyADSB e Open-Meteo combinati in un'unica vista live.",
+    "phase1Notice": "Live: terremoti USGS, satelliti, ISS, aerei reali (FlyItalyADSB), meteo, incendi FIRMS, eventi EONET, overlay NASA GIBS e terminatore.",
     "mapTitle": "Mappa live",
     "listingTitle": "Terremoti vicino al centro mappa",
     "openLayers": "Apri pannello layer",
@@ -37,7 +37,7 @@
     "highlights": "In arrivo nelle prossime fasi",
     "highlightQuakes": "Terremoti USGS in tempo reale",
     "highlightSats": "Satelliti CelesTrak con propagazione SGP4",
-    "highlightAircraft": "Traffico aereo OpenSky",
+    "highlightAircraft": "Traffico aereo reale (FlyItalyADSB)",
     "highlightWeather": "Meteo Open-Meteo + radar precipitazioni RainViewer",
     "highlightFires": "Incendi NASA FIRMS / GIBS Active Fires",
     "highlightEonet": "Eventi naturali NASA EONET",
@@ -184,34 +184,29 @@
     "unknown": "Condizione sconosciuta"
   },
   "aircraft": {
-    "title": "Aerei OpenSky",
-    "subtitle": "Stati ADS-B in tempo reale dal network OpenSky",
+    "title": "Aerei (FlyItalyADSB)",
+    "subtitle": "Posizioni ADS-B/MLAT reali dalla rete FlyItalyADSB, tramite il gateway EarthRadar",
     "showOnGround": "Mostra anche a terra",
-    "showVectors": "Vettori velocità (30 s)",
     "tooltipAlt": "Quota",
     "tooltipVel": "Velocità",
-    "close": "Chiudi",
     "detailTitle": "Aereo",
     "callsign": "Callsign",
-    "icao24": "ICAO24",
-    "country": "Paese di origine",
     "altBaro": "Quota barometrica",
     "altGeo": "Quota geometrica",
     "velocity": "Velocità",
     "verticalRate": "Velocità verticale",
     "heading": "Heading",
-    "squawk": "Squawk",
-    "lastContact": "Ultimo contatto",
+    "lastContact": "Ultima posizione",
     "onGround": "A terra",
     "inFlight": "In volo",
-    "openFr24": "Apri su Flightradar24",
-    "incertitude": "Dati ADS-B best-effort, copertura dipendente dalla rete di ricevitori OpenSky.",
-    "saturated": "Fonte saturata, ritento tra {{minutes}} min",
-    "saturatedShort": "Fonte saturata",
-    "outOfView": "Pan/zoom della mappa: l'aereo è uscito dal viewport o non più tracciato.",
-    "viewportCapped": "Mostriamo i 500 aerei più vicini al centro mappa.",
-    "loading": "Caricamento aerei OpenSky…",
-    "empty": "Nessun aereo nel viewport corrente."
+    "incertitude": "Solo posizioni realmente ricevute, nessuna previsione. Copertura dipendente dalla rete di ricevitori FlyItalyADSB.",
+    "outOfView": "L'aereo non è più nei dati ricevuti (fuori area o non più tracciato).",
+    "loading": "Caricamento traffico aereo…",
+    "registration": "Registrazione",
+    "type": "Tipo",
+    "restricted": "Aeromobile riservato",
+    "restrictedHint": "Programma di privacy LADD/PIA: callsign, registrazione e codice ICAO non vengono mostrati.",
+    "openFr24": "Apri su Flightradar24"
   },
   "eonet": {
     "title": "Eventi naturali EONET",
@@ -408,11 +403,11 @@
           "limits": "Le predizioni dei passaggi hanno incertezza di pochi secondi sulle 24 ore; oltre, dipende da quando la NASA pubblica un TLE aggiornato dopo una manovra di reboost. La luminosità apparente varia da magnitudine -5 (più brillante di Venere) a invisibile, secondo l'angolo Sole-osservatore-stazione."
         },
         "aircraft": {
-          "title": "Aerei OpenSky",
-          "what": "Quasi tutti gli aerei civili in volo trasmettono in chiaro la propria posizione via ADS-B, su una banda radio che chiunque con un'antenna da venti euro può ricevere. La rete OpenSky è una community di volontari con queste antenne sparse per il mondo, che mette in comune i dati e li offre gratuitamente alla ricerca.",
-          "where": "OpenSky Network — progetto open data fondato a ETH Zürich. Copertura ottima su Europa e Nord America, lacunosa sopra oceani e zone remote.",
-          "howToRead": "Ogni triangolino è un aereo, orientato secondo la direzione di volo. Cliccando si ottiene callsign, ICAO24, paese di registrazione, quota barometrica, velocità al suolo, heading, e link a Flightradar24 per vederne il piano di volo completo. Gli aerei in crociera sono a 10-12 km di quota, quelli in fase di decollo o atterraggio molto più bassi.",
-          "limits": "ADS-B è obbligatorio nello spazio aereo controllato di molte autorità, ma non ovunque. Mancano: la maggior parte dei militari (volutamente), parte del traffico russo e cinese, e i voli su zone senza ricevitori OpenSky vicini. Niente decisioni operative su questo dato — è uno strumento di curiosità, non di controllo del traffico."
+          "title": "Aerei (FlyItalyADSB)",
+          "what": "Quasi tutti gli aerei civili in volo trasmettono in chiaro la propria posizione via ADS-B, su una banda radio che chiunque con un'antenna da venti euro può ricevere. La rete FlyItalyADSB è una community di ricevitori sparsi per il mondo che mette in comune questi dati.",
+          "where": "FlyItalyADSB — rete comunitaria ADS-B/MLAT nata in Italia, dati sotto licenza CC BY-SA 4.0. EarthRadar li riceve tramite il proprio gateway, che interroga solo l'area osservata (raggio massimo 150 NM).",
+          "howToRead": "Ogni simbolo è un aereo, orientato secondo la rotta reale quando è trasmessa; un anello senza verso indica rotta non disponibile. Cliccando si ottengono callsign, registrazione, tipo, quota, velocità al suolo, rotta e velocità verticale, quando presenti. Le posizioni sono solo quelle realmente ricevute: tra un aggiornamento e l'altro l'aereo resta fermo sull'ultima posizione nota.",
+          "limits": "ADS-B è obbligatorio nello spazio aereo controllato di molte autorità, ma non ovunque. Mancano: la maggior parte dei militari (volutamente), parte del traffico russo e cinese, e i voli su zone senza ricevitori vicini. Gli aerei nei programmi di privacy LADD/PIA sono mostrati senza identificativi. Niente decisioni operative su questo dato — è uno strumento di curiosità, non di controllo del traffico."
         },
         "fires": {
           "title": "Incendi NASA FIRMS",
@@ -778,16 +773,16 @@
   "about": {
     "title": "Info su EarthRadar",
     "version": "Versione",
-    "intro": "EarthRadar è una PWA divulgativa della famiglia PezzaliAPP. Risponde alla domanda \"cosa sta succedendo sulla Terra adesso?\" combinando dati USGS, NASA, NOAA, CelesTrak, OpenSky e Open-Meteo.",
+    "intro": "EarthRadar è una PWA divulgativa della famiglia PezzaliAPP. Risponde alla domanda \"cosa sta succedendo sulla Terra adesso?\" combinando dati USGS, NASA, NOAA, CelesTrak, FlyItalyADSB e Open-Meteo.",
     "sisterTitle": "Sister app",
     "sisterIntro": "EarthRadar fa parte della trilogia Earth & Space PezzaliAPP:",
     "sourcesTitle": "Fonti dati",
-    "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · OpenSky Network · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
+    "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · FlyItalyADSB (CC BY-SA 4.0) · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
   },
   "radarMode": {
     "title": "Radar Mode",
     "subtitle": "Tributo al canvas verde fosforo del progetto originale",
-    "intro": "PPI verde fosforo: terremoti USGS, satelliti CelesTrak in vista e — se attivi — aerei OpenSky proiettati in bearing/range rispetto al centro. Il sweep ruota in senso orario.",
+    "intro": "PPI verde fosforo: terremoti USGS, satelliti CelesTrak in vista e — se attivi — aerei reali (FlyItalyADSB) proiettati in bearing/range rispetto al centro. Il sweep ruota in senso orario.",
     "rangeLabel": "Raggio",
     "rangeKm": "{{km}} km",
     "centerLabel": "Centro",
@@ -798,12 +793,12 @@
     "audioToggle": "Audio ping",
     "audioOn": "Audio attivo",
     "audioOff": "Audio muto",
-    "showAircraft": "Mostra aerei OpenSky",
-    "aircraftHint": "Disattivo di default per non saturare OpenSky.",
+    "showAircraft": "Mostra aerei",
+    "aircraftHint": "Disattivo di default: i dati aerei arrivano da una rete comunitaria gratuita.",
     "reducedMotionNotice": "Animazioni ridotte: il sweep è statico (preferenza di sistema).",
     "legendQuakes": "Terremoti USGS (raggio = magnitudo)",
     "legendSatellites": "Satelliti CelesTrak (stations + visual)",
-    "legendAircraft": "Aerei OpenSky",
+    "legendAircraft": "Aerei",
     "legendCenter": "Centro radar",
     "stats": "{{quakes}} sismi · {{sats}} sat · {{aircraft}} aerei nel raggio",
     "tributeBadge": "Easter egg — tributo radarApp originale",
@@ -815,7 +810,7 @@
   "footer": {
     "about": "Info",
     "github": "GitHub",
-    "disclaimer": "Strumento divulgativo basato su dati pubblici USGS / NASA / NOAA / CelesTrak / OpenSky / Open-Meteo. Non sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria.",
+    "disclaimer": "Strumento divulgativo basato su dati pubblici USGS / NASA / NOAA / CelesTrak / FlyItalyADSB / Open-Meteo. Non sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria.",
     "sisterApps": "Sister app"
   },
   "share": {
@@ -835,7 +830,7 @@
   },
   "disclaimer": {
     "title": "EarthRadar — Avviso",
-    "body": "Strumento divulgativo basato su dati pubblici USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo. NON sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria. Posizioni satellitari propagate da TLE pubblici (incertezza tipica km su orbite basse).",
+    "body": "Strumento divulgativo basato su dati pubblici USGS, NASA, NOAA, CelesTrak, FlyItalyADSB, Open-Meteo. NON sostituisce sistemi ufficiali di protezione civile, navigazione aerea, sismologia, meteorologia operativa o difesa planetaria. Posizioni satellitari propagate da TLE pubblici (incertezza tipica km su orbite basse).",
     "accept": "Ho capito, continua",
     "short": "Strumento divulgativo. Non sostituisce sistemi operativi ufficiali."
   },

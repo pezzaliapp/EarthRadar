@@ -25,8 +25,8 @@
   },
   "home": {
     "headline": "What's happening on Earth right now?",
-    "intro": "Public USGS, NASA, NOAA, CelesTrak, OpenSky and Open-Meteo data combined in a single live view.",
-    "phase1Notice": "Phase 1 live: USGS quakes + switchable NASA GIBS tiles + terminator. Satellites, aircraft, weather, FIRMS, EONET, ISS still to come.",
+    "intro": "Public USGS, NASA, NOAA, CelesTrak, FlyItalyADSB and Open-Meteo data combined in a single live view.",
+    "phase1Notice": "Live: USGS quakes, satellites, ISS, real aircraft (FlyItalyADSB), weather, FIRMS fires, EONET events, NASA GIBS overlays and terminator.",
     "mapTitle": "Live map",
     "listingTitle": "Earthquakes near map center",
     "openLayers": "Open layer panel",
@@ -37,7 +37,7 @@
     "highlights": "Coming in the next phases",
     "highlightQuakes": "USGS real-time earthquakes",
     "highlightSats": "CelesTrak satellites with SGP4 propagation",
-    "highlightAircraft": "OpenSky live air traffic",
+    "highlightAircraft": "Real air traffic (FlyItalyADSB)",
     "highlightWeather": "Open-Meteo current + RainViewer precipitation radar",
     "highlightFires": "NASA FIRMS / GIBS Active Fires",
     "highlightEonet": "NASA EONET natural events",
@@ -184,34 +184,29 @@
     "unknown": "Unknown condition"
   },
   "aircraft": {
-    "title": "OpenSky aircraft",
-    "subtitle": "Real-time ADS-B states from the OpenSky network",
+    "title": "Aircraft (FlyItalyADSB)",
+    "subtitle": "Real ADS-B/MLAT positions from the FlyItalyADSB network, via the EarthRadar gateway",
     "showOnGround": "Also show on-ground",
-    "showVectors": "Velocity vectors (30 s)",
     "tooltipAlt": "Alt",
     "tooltipVel": "Vel",
-    "close": "Close",
     "detailTitle": "Aircraft",
     "callsign": "Callsign",
-    "icao24": "ICAO24",
-    "country": "Origin country",
     "altBaro": "Baro altitude",
     "altGeo": "Geo altitude",
     "velocity": "Velocity",
     "verticalRate": "Vertical rate",
     "heading": "Heading",
-    "squawk": "Squawk",
-    "lastContact": "Last contact",
+    "lastContact": "Last position",
     "onGround": "On ground",
     "inFlight": "In flight",
-    "openFr24": "Open on Flightradar24",
-    "incertitude": "Best-effort ADS-B data, coverage depends on the OpenSky receiver network.",
-    "saturated": "Source saturated, retrying in {{minutes}} min",
-    "saturatedShort": "Source saturated",
-    "outOfView": "Pan/zoom: the aircraft is outside the viewport or no longer tracked.",
-    "viewportCapped": "Showing the 500 aircraft closest to the map center.",
-    "loading": "Loading OpenSky aircraft…",
-    "empty": "No aircraft in the current viewport."
+    "incertitude": "Only positions actually received, no prediction. Coverage depends on the FlyItalyADSB receiver network.",
+    "outOfView": "The aircraft is no longer in the received data (out of area or no longer tracked).",
+    "loading": "Loading air traffic…",
+    "registration": "Registration",
+    "type": "Type",
+    "restricted": "Restricted aircraft",
+    "restrictedHint": "LADD/PIA privacy program: callsign, registration and ICAO code are not shown.",
+    "openFr24": "Open on Flightradar24"
   },
   "eonet": {
     "title": "EONET natural events",
@@ -408,11 +403,11 @@
           "limits": "Pass predictions have an uncertainty of a few seconds over 24 hours; beyond that, it depends on when NASA publishes a refreshed TLE after a reboost manoeuvre. Apparent magnitude varies from -5 (brighter than Venus) to invisible, depending on the Sun-observer-station angle."
         },
         "aircraft": {
-          "title": "OpenSky Aircraft",
-          "what": "Almost every civilian aircraft in flight broadcasts its position in the clear via ADS-B, on a radio band anyone with a twenty-euro antenna can pick up. The OpenSky network is a community of volunteers with these antennas scattered across the world, pooling the data and making it freely available to research.",
-          "where": "OpenSky Network — open-data project founded at ETH Zürich. Excellent coverage over Europe and North America, patchy over oceans and remote areas.",
-          "howToRead": "Each small triangle is an aircraft, oriented along its flight direction. Clicking opens callsign, ICAO24, registration country, barometric altitude, ground speed, heading, and a link to Flightradar24 for the full flight plan. Cruise altitudes are 10-12 km; takeoff or landing aircraft fly much lower.",
-          "limits": "ADS-B is mandatory in many controlled airspaces but not everywhere. Missing: most military traffic (deliberately), part of Russian and Chinese traffic, and any flights over zones without nearby OpenSky receivers. No operational decisions on this data — it's a curiosity tool, not air-traffic control."
+          "title": "Aircraft (FlyItalyADSB)",
+          "what": "Almost every civilian aircraft in flight broadcasts its position in the clear via ADS-B, on a radio band anyone with a twenty-euro antenna can pick up. FlyItalyADSB is a community network of receivers around the world pooling this data.",
+          "where": "FlyItalyADSB — community ADS-B/MLAT network born in Italy, data licensed CC BY-SA 4.0. EarthRadar receives it through its own gateway, which queries only the observed area (maximum radius 150 NM).",
+          "howToRead": "Each symbol is an aircraft, oriented along its real track when transmitted; a ring without direction means track not available. Clicking shows callsign, registration, type, altitude, ground speed, track and vertical rate, when present. Positions are only those actually received: between updates the aircraft stays on its last known position.",
+          "limits": "ADS-B is mandatory in many controlled airspaces but not everywhere. Missing: most military traffic (deliberately), part of Russian and Chinese traffic, and any flights over zones without nearby receivers. Aircraft in the LADD/PIA privacy programs are shown without identifiers. No operational decisions on this data — it's a curiosity tool, not air-traffic control."
         },
         "fires": {
           "title": "NASA FIRMS Active Fires",
@@ -778,16 +773,16 @@
   "about": {
     "title": "About EarthRadar",
     "version": "Version",
-    "intro": "EarthRadar is an educational PWA in the PezzaliAPP family. It answers the question \"what's happening on Earth right now?\" by combining public USGS, NASA, NOAA, CelesTrak, OpenSky and Open-Meteo data.",
+    "intro": "EarthRadar is an educational PWA in the PezzaliAPP family. It answers the question \"what's happening on Earth right now?\" by combining public USGS, NASA, NOAA, CelesTrak, FlyItalyADSB and Open-Meteo data.",
     "sisterTitle": "Sister apps",
     "sisterIntro": "EarthRadar is part of the PezzaliAPP Earth & Space trilogy:",
     "sourcesTitle": "Data sources",
-    "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · OpenSky Network · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
+    "sources": "USGS · NASA GIBS · NASA FIRMS · NASA EONET · NASA EPIC · CelesTrak · FlyItalyADSB (CC BY-SA 4.0) · Open-Meteo · RainViewer · wheretheiss.at · OpenStreetMap"
   },
   "radarMode": {
     "title": "Radar Mode",
     "subtitle": "Tribute to the original phosphor-green canvas",
-    "intro": "Phosphor-green PPI: USGS earthquakes, CelesTrak satellites in view, and — if enabled — OpenSky aircraft projected in bearing/range relative to the center. Sweep rotates clockwise.",
+    "intro": "Phosphor-green PPI: USGS earthquakes, CelesTrak satellites in view, and — if enabled — real aircraft (FlyItalyADSB) projected in bearing/range relative to the center. Sweep rotates clockwise.",
     "rangeLabel": "Range",
     "rangeKm": "{{km}} km",
     "centerLabel": "Center",
@@ -798,12 +793,12 @@
     "audioToggle": "Audio ping",
     "audioOn": "Audio on",
     "audioOff": "Audio muted",
-    "showAircraft": "Show OpenSky aircraft",
-    "aircraftHint": "Off by default to avoid OpenSky saturation.",
+    "showAircraft": "Show aircraft",
+    "aircraftHint": "Off by default: aircraft data comes from a free community network.",
     "reducedMotionNotice": "Reduced motion: the sweep is static (system preference).",
     "legendQuakes": "USGS earthquakes (radius = magnitude)",
     "legendSatellites": "CelesTrak satellites (stations + visual)",
-    "legendAircraft": "OpenSky aircraft",
+    "legendAircraft": "Aircraft",
     "legendCenter": "Radar center",
     "stats": "{{quakes}} quakes · {{sats}} sats · {{aircraft}} aircraft in range",
     "tributeBadge": "Easter egg — tribute to the original radarApp",
@@ -815,7 +810,7 @@
   "footer": {
     "about": "About",
     "github": "GitHub",
-    "disclaimer": "Educational tool based on public USGS / NASA / NOAA / CelesTrak / OpenSky / Open-Meteo data. Does not replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems.",
+    "disclaimer": "Educational tool based on public USGS / NASA / NOAA / CelesTrak / FlyItalyADSB / Open-Meteo data. Does not replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems.",
     "sisterApps": "Sister apps"
   },
   "share": {
@@ -835,7 +830,7 @@
   },
   "disclaimer": {
     "title": "EarthRadar — Notice",
-    "body": "Educational tool based on public USGS, NASA, NOAA, CelesTrak, OpenSky, Open-Meteo data. It does NOT replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems. Satellite positions are propagated from public TLEs (typical km-level uncertainty in LEO).",
+    "body": "Educational tool based on public USGS, NASA, NOAA, CelesTrak, FlyItalyADSB, Open-Meteo data. It does NOT replace official civil-protection, air-navigation, seismology, operational meteorology or planetary-defense systems. Satellite positions are propagated from public TLEs (typical km-level uncertainty in LEO).",
     "accept": "Understood, continue",
     "short": "Educational tool. Does not replace official operational systems."
   },

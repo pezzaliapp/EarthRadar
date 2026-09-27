@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import * as THREE from 'three';
 import { useTranslation } from '@/i18n';
@@ -6,7 +6,7 @@ import { useLayersStore } from '@/store/layersStore';
 import { useQuakes } from '@/hooks/useQuakes';
 import { useSatellites } from '@/hooks/useSatellites';
 import { useIss } from '@/hooks/useIss';
-import { useAircraft } from '@/hooks/useAircraft';
+import { useAircraftView } from '@/hooks/useAircraftFeed';
 import { useEonet } from '@/hooks/useEonet';
 import { useFires } from '@/hooks/useFires';
 import { useWeatherGrid } from '@/hooks/useWeatherGrid';
@@ -17,11 +17,17 @@ import { eonetCategorySpec } from '@/services/eonetCategories';
 import { frpColor } from '@/services/firmsApi';
 import { wmoEntry } from '@/lib/wmoCodes';
 import { propagateSatrec, tleToSatrec } from '@/lib/sgp4Lite';
-import { subsolarPoint } from '@/lib/dayNightTerminator';
 import type { Quake } from '@/services/usgsQuakesApi';
-import type { Aircraft } from '@/services/openSkyApi';
 import type { EonetEvent } from '@/services/eonetApi';
+import { aircraftTitle } from '@/lib/aircraftFormat';
 import type { FirmsHotspot } from '@/services/firmsApi';
+import {
+  aircraftSymbolScale,
+  createAircraftObject,
+  updateAircraftObject,
+} from './aircraftGlobeObject';
+import { useAircraftGlobeEntities, type AircraftGlobeEntity } from './useAircraftGlobeEntities';
+import { createNightShade, startNightShadeClock } from './nightShade';
 
 /**
  * Vista 3D EarthRadar.
@@ -33,8 +39,8 @@ import type { FirmsHotspot } from '@/services/firmsApi';
  *   raddoppiamo il network. La differenza è solo come mappiamo i dati
  *   ai formati di react-globe.gl (pointsData / objectsData /
  *   polygonsData / pathsData / htmlElementsData).
- * - Day/night via overlay polygon "calotta antisolare" semitrasparente,
- *   ricalcolato ogni minuto dal `subsolarPoint`.
+ * - Day/night via guscio sferico con shader (vedi `nightShade.ts`):
+ *   velo continuo sull'emisfero notturno, aggiornato ogni minuto.
  * - Performance fallback: vedi `usePerfFallback`. Se < 25 fps medi nei
  *   primi 3 secondi, viewMode passa a '2d' e il flag triggered è salvato.
  */
@@ -42,16 +48,18 @@ import type { FirmsHotspot } from '@/services/firmsApi';
 // Scala globo: react-globe.gl normalizza il raggio a 100 unità interne.
 const GLOBE_RADIUS_KM = 6371;
 const SATELLITE_TICK_MS = 5000;
+/** Attesa a camera ferma prima di aggiornare il centro osservato (aerei, meteo). */
+const POV_DEBOUNCE_MS = 1000;
 
 interface PointEntity {
-  kind: 'quake' | 'aircraft' | 'eonet-point' | 'firms';
+  kind: 'quake' | 'eonet-point' | 'firms';
   lat: number;
   lng: number;
   alt: number; // altitudine relativa al raggio (0 = terra)
   color: string;
   size: number; // ridimensionato per pointAltitude (proporzionale)
   label: string;
-  data: Quake | Aircraft | EonetEvent | FirmsHotspot;
+  data: Quake | EonetEvent | FirmsHotspot;
 }
 
 interface ObjectEntity {
@@ -74,7 +82,7 @@ interface HtmlEntity {
 }
 
 interface PolygonEntity {
-  kind: 'night' | 'eonet-polygon';
+  kind: 'eonet-polygon';
   /** GeoJSON-style array di rings: [[lon,lat], …]. */
   coordinates: number[][][];
   color: string;
@@ -129,8 +137,20 @@ export default function Globe3D() {
   const showIssTrack = useLayersStore((s) => s.issShowGroundTrack);
   const iss = useIss(issEnabled);
 
+  // Aerei: SOLO lettura dello store condiviso (il poller unico è pilotato dalla Home).
   const aircraftEnabled = useLayersStore((s) => s.overlays.aircraft?.enabled ?? false);
-  const aircraft = useAircraft(aircraftEnabled);
+  const aircraftShowOnGround = useLayersStore((s) => s.aircraftShowOnGround);
+  const selectedAircraftId = useLayersStore((s) => s.selectedAircraft?.id ?? null);
+  const aircraftFeed = useAircraftView();
+  const aircraftShown = useMemo(
+    () =>
+      !aircraftEnabled
+        ? []
+        : aircraftShowOnGround
+          ? aircraftFeed.aircraft
+          : aircraftFeed.aircraft.filter((a) => !a.onGround),
+    [aircraftEnabled, aircraftShowOnGround, aircraftFeed.aircraft],
+  );
 
   const eonetEnabled = useLayersStore((s) => s.overlays.eonet?.enabled ?? false);
   const eonetCats = useLayersStore((s) => s.eonetActiveCategories);
@@ -156,6 +176,66 @@ export default function Globe3D() {
   const mapCenter = useLayersStore((s) => s.mapCenter);
   const weather = useWeatherGrid(weatherEnabled, mapCenter[0], mapCenter[1], stepKm);
 
+  // Aerei: oggetti THREE con identità stabile + transizione grafica A → B reale.
+  const aircraftEntities = useAircraftGlobeEntities(
+    aircraftShown,
+    selectedAircraftId,
+    reducedMotion,
+  );
+
+  // Centro dell'area osservata → mapCenter (usato dal poller aerei), con
+  // debounce: nessuna richiesta durante rotazione/zoom, solo a camera ferma.
+  const povTimerRef = useRef<number | null>(null);
+  // Scala dei simboli aereo legata alla quota della camera (aggiornata solo
+  // quando cambia di almeno il 15 %, per non ridisegnare a ogni frame).
+  const [aircraftScale, setAircraftScale] = useState(() => aircraftSymbolScale(2.4));
+  const handlePovChange = useCallback((pov: { lat: number; lng: number; altitude: number }) => {
+    const nextScale = aircraftSymbolScale(pov.altitude);
+    setAircraftScale((cur) => (Math.abs(nextScale - cur) / cur > 0.15 ? nextScale : cur));
+    if (povTimerRef.current !== null) window.clearTimeout(povTimerRef.current);
+    povTimerRef.current = window.setTimeout(() => {
+      povTimerRef.current = null;
+      const lng = ((((pov.lng + 180) % 360) + 360) % 360) - 180;
+      const [lat0, lon0] = useLayersStore.getState().mapCenter;
+      if (Math.abs(pov.lat - lat0) < 0.1 && Math.abs(lng - lon0) < 0.1) return;
+      useLayersStore.getState().setMapCenter([pov.lat, lng]);
+    }, POV_DEBOUNCE_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (povTimerRef.current !== null) window.clearTimeout(povTimerRef.current);
+    },
+    [],
+  );
+
+  // Callback stabili: una funzione nuova per `customThreeObject` farebbe
+  // ricreare a three-globe tutti gli oggetti a ogni render.
+  const updateAircraftCallback = useCallback(
+    (obj: THREE.Object3D, d: object, globeRadius?: number) =>
+      updateAircraftObject(obj, d as AircraftGlobeEntity, globeRadius ?? 100, aircraftScale),
+    [aircraftScale],
+  );
+  const aircraftLabelCallback = useCallback(
+    (d: object) => aircraftLabel(d as AircraftGlobeEntity, language),
+    [language],
+  );
+  const aircraftClickCallback = useCallback(
+    (d: object) => {
+      const e = d as AircraftGlobeEntity;
+      useLayersStore
+        .getState()
+        .setSelectedAircraft({ id: e.id, label: aircraftTitle(e.aircraft, language) });
+    },
+    [language],
+  );
+
+  // Nuovo array al cambio di scala: forza l'aggiornamento degli oggetti esistenti.
+  const aircraftLayerData = useMemo(
+    () => [...aircraftEntities],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [aircraftEntities, aircraftScale],
+  );
+
   // -------- Tick per propagazione satelliti / ISS --------
   const tickRef = useRef(Date.now());
   const [, setTickBump] = useState(0);
@@ -169,7 +249,7 @@ export default function Globe3D() {
 
   // -------- Trasformazioni --------
 
-  // Points: quakes + aircraft + eonet-point + firms (tutti "a terra")
+  // Points: quakes + eonet-point + firms (tutti "a terra")
   const pointsData = useMemo<PointEntity[]>(() => {
     const out: PointEntity[] = [];
     if (quakesEnabled) {
@@ -183,22 +263,6 @@ export default function Globe3D() {
           size: Math.max(0.15, q.magnitude * 0.18),
           label: `M ${q.magnitude.toFixed(1)} · ${q.place ?? ''}`,
           data: q,
-        });
-      }
-    }
-    if (aircraftEnabled) {
-      for (const a of aircraft.data) {
-        if (a.onGround) continue;
-        const alt = (a.baroAltM ?? 11000) / GLOBE_RADIUS_KM / 1000;
-        out.push({
-          kind: 'aircraft',
-          lat: a.lat,
-          lng: a.lon,
-          alt,
-          color: '#5cf0ff',
-          size: 0.18,
-          label: `${a.callsign || a.icao24} · ${a.originCountry}`,
-          data: a,
         });
       }
     }
@@ -234,17 +298,7 @@ export default function Globe3D() {
       }
     }
     return out;
-  }, [
-    quakesEnabled,
-    quakes,
-    aircraftEnabled,
-    aircraft.data,
-    eonetEnabled,
-    eonet.data,
-    firmsEnabled,
-    fires.mode,
-    fires.hotspots,
-  ]);
+  }, [quakesEnabled, quakes, eonetEnabled, eonet.data, firmsEnabled, fires.mode, fires.hotspots]);
 
   // Objects: satelliti + ISS (sfere THREE custom a quota reale scalata)
   const objectsData = useMemo<ObjectEntity[]>(() => {
@@ -307,11 +361,9 @@ export default function Globe3D() {
     return path.length > 1 ? [{ path, color: '#5cf0ff' }] : [];
   }, [issEnabled, showIssTrack, iss.satrec]);
 
-  // Polygons: notte (calotta antisolar) + EONET polygons.
+  // Polygons: EONET (la notte è un guscio a parte, vedi effetto "Velo notturno").
   const polygonsData = useMemo<PolygonEntity[]>(() => {
     const out: PolygonEntity[] = [];
-    // Notte: ring lungo il terminatore + corona antisolar.
-    out.push(buildNightPolygon(new Date(tickRef.current)));
     if (eonetEnabled) {
       for (const e of eonet.data) {
         for (const g of e.geometry) {
@@ -358,6 +410,7 @@ export default function Globe3D() {
   }, [weatherEnabled, weather.center, weather.cells]);
 
   // -------- Setup imperativo controlli (auto-rotate molto leggero) --------
+  const globeMounted = size.w > 0 && size.h > 0;
   useEffect(() => {
     const g = globeRef.current;
     if (!g) return;
@@ -370,8 +423,31 @@ export default function Globe3D() {
     controls.autoRotate = false; // l'utente sceglie di interagire, niente rotazione forzata
     controls.enableDamping = true;
     controls.dampingFactor = 0.18;
-    g.pointOfView({ lat: 30, lng: 10, altitude: 2.4 }, 0);
-  }, []);
+    // Vista iniziale centrata sul centro mappa corrente (default Reggio Emilia),
+    // così l'area osservata è significativa fin dall'apertura.
+    const [lat0, lon0] = useLayersStore.getState().mapCenter;
+    g.pointOfView({ lat: lat0, lng: lon0, altitude: 2.4 }, 0);
+    // Il <Globe> è montato solo dopo la prima misura del container: questo
+    // effetto deve ripartire allora, altrimenti il globo resta su (0, 0).
+  }, [globeMounted]);
+
+  // -------- Velo notturno --------
+  // Guscio sferico con shader aggiunto direttamente alla scena: nessuna
+  // triangolazione (niente buchi), aggiornato ogni minuto cambiando un solo
+  // uniform, senza re-render React.
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!g) return;
+    const scene = g.scene();
+    const shade = createNightShade(g.getGlobeRadius());
+    scene.add(shade.mesh);
+    const stop = startNightShadeClock(shade.update);
+    return () => {
+      stop();
+      scene.remove(shade.mesh);
+      shade.dispose();
+    };
+  }, [globeMounted]);
 
   // -------- Render --------
   // Dimensioni: passiamo width/height espliciti misurati con ResizeObserver
@@ -405,6 +481,13 @@ export default function Globe3D() {
         pointColor={(d: object) => (d as PointEntity).color}
         pointLabel={(d: object) => (d as PointEntity).label}
         onPointClick={(d: object) => handlePointClick(d as PointEntity)}
+        // Aerei: layer custom (simbolo THREE leggero orientato sulla rotta reale)
+        customLayerData={aircraftLayerData}
+        customThreeObject={createAircraftObject}
+        customThreeObjectUpdate={updateAircraftCallback}
+        customLayerLabel={aircraftLabelCallback}
+        onCustomLayerClick={aircraftClickCallback}
+        onZoom={handlePovChange}
         // Custom THREE objects (satelliti, ISS)
         objectsData={objectsData}
         objectLat={(d: object) => (d as ObjectEntity).lat}
@@ -429,21 +512,9 @@ export default function Globe3D() {
             coordinates: (d as PolygonEntity).coordinates,
           })) as never
         }
-        polygonCapColor={(d: object) => {
-          const e = d as PolygonEntity;
-          if (e.kind === 'night') return 'rgba(5,7,15,0.55)';
-          return `${e.color}33`;
-        }}
-        polygonSideColor={(d: object) => {
-          const e = d as PolygonEntity;
-          if (e.kind === 'night') return 'rgba(0,0,0,0)';
-          return `${e.color}22`;
-        }}
-        polygonStrokeColor={(d: object) => {
-          const e = d as PolygonEntity;
-          if (e.kind === 'night') return 'rgba(0,0,0,0)';
-          return `${e.color}aa`;
-        }}
+        polygonCapColor={(d: object) => `${(d as PolygonEntity).color}33`}
+        polygonSideColor={(d: object) => `${(d as PolygonEntity).color}22`}
+        polygonStrokeColor={(d: object) => `${(d as PolygonEntity).color}aa`}
         polygonAltitude={() => 0.001}
         // HTML weather emojis
         htmlElementsData={htmlElementsData}
@@ -470,9 +541,6 @@ export default function Globe3D() {
       useLayersStore
         .getState()
         .setSelectedFireId(`${h.lat.toFixed(4)},${h.lon.toFixed(4)},${h.acqDate},${h.acqTime}`);
-    } else if (p.kind === 'aircraft') {
-      const a = p.data as Aircraft;
-      useLayersStore.getState().setSelectedAircraft({ icao24: a.icao24, callsign: a.callsign });
     }
   }
 
@@ -483,40 +551,20 @@ export default function Globe3D() {
   }
 }
 
-/**
- * Costruisce il polygon "notte" come calotta sferica antisolar di raggio π/2.
- * react-globe.gl renderizza polygonsData come geometrie GeoJSON, supporta
- * lat/lng. Approssimo la calotta come un cerchio sulla sfera con 96
- * vertici, calcolati come distance-π/2 dal punto subsolare.
- */
-function buildNightPolygon(now: Date): PolygonEntity {
-  const [subLat, subLon] = subsolarPoint(now);
-  // Antisolar = lato opposto della Terra
-  const antiLat = -subLat;
-  const antiLon = ((subLon + 180 + 540) % 360) - 180;
-  const ring: Array<[number, number]> = [];
-  const SAMPLES = 96;
-  const DEG = Math.PI / 180;
-  const RAD = 180 / Math.PI;
-  const dist = Math.PI / 2; // raggio angolare 90°
-  const phiC = antiLat * DEG;
-  const lamC = antiLon * DEG;
-  for (let i = 0; i <= SAMPLES; i++) {
-    const tBearing = (i / SAMPLES) * 2 * Math.PI;
-    const phi = Math.asin(
-      Math.sin(phiC) * Math.cos(dist) + Math.cos(phiC) * Math.sin(dist) * Math.cos(tBearing),
-    );
-    const lam =
-      lamC +
-      Math.atan2(
-        Math.sin(tBearing) * Math.sin(dist) * Math.cos(phiC),
-        Math.cos(dist) - Math.sin(phiC) * Math.sin(phi),
-      );
-    let lonDeg = lam * RAD;
-    lonDeg = ((lonDeg + 540) % 360) - 180;
-    ring.push([lonDeg, phi * RAD]);
-  }
-  return { kind: 'night', coordinates: [ring], color: '#000000' };
+function aircraftLabel(e: AircraftGlobeEntity, language: string): string {
+  const a = e.aircraft;
+  const it = language === 'it';
+  const alt =
+    e.altitudeKind === 'ground'
+      ? it
+        ? 'a terra'
+        : 'on ground'
+      : e.altitudeKind === 'unknown'
+        ? it
+          ? 'quota n.d.'
+          : 'altitude n/a'
+        : `${Math.round((a.altBaroM ?? a.altGeomM ?? 0) / 100) / 10} km`;
+  return [aircraftTitle(a, language), a.typeCode, alt].filter(Boolean).join(' · ');
 }
 
 /** Costruisce un piccolo mesh THREE per i satelliti / ISS. */
