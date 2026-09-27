@@ -180,6 +180,17 @@ export function normalizeReadsbAircraft(raw: unknown, opts: NormalizeOptions = {
   };
 }
 
+/**
+ * `now` del provider → ms Unix interi. FlyItalyADSB lo invia in secondi con
+ * decimali (es. 1790525916.049), altri server readsb in ms: sotto 1e11 (anno
+ * 1973 se ms, anno 5138 se s) il valore è in secondi.
+ */
+export function providerTimeMs(now: unknown): number | null {
+  const n = finite(now);
+  if (n === null || n <= 0) return null;
+  return Math.round(n < 1e11 ? n * 1000 : n);
+}
+
 /** Lancia InvalidPayloadError se la struttura di primo livello non è quella attesa. */
 export function normalizeReadsbResponse(
   input: unknown,
@@ -216,5 +227,5 @@ export function normalizeReadsbResponse(
     aircraft.push(r.value);
   }
   aircraft.sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
-  return { providerTime: finite(body.now), aircraft, stats };
+  return { providerTime: providerTimeMs(body.now), aircraft, stats };
 }

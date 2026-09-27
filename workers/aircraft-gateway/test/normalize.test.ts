@@ -7,6 +7,7 @@ import {
   mapPositionSource,
   normalizeReadsbAircraft,
   normalizeReadsbResponse,
+  providerTimeMs,
 } from '../src/normalize.ts';
 import fixture from './fixtures/readsb-point.json';
 
@@ -257,5 +258,31 @@ describe('AnonymousIds', () => {
     small.idFor('2');
     small.idFor('3');
     expect(small.size).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('providerTime in ms Unix', () => {
+  it('secondi con decimali (FlyItalyADSB) → ms interi', () => {
+    expect(providerTimeMs(1790525916.0492783)).toBe(1790525916049);
+    expect(normalizeReadsbResponse({ ac: [], now: 1790525916.0492783 }).providerTime).toBe(
+      1790525916049,
+    );
+  });
+
+  it('secondi interi → ms', () => {
+    expect(providerTimeMs(1790525916)).toBe(1790525916000);
+  });
+
+  it('millisecondi già corretti → invariati', () => {
+    expect(providerTimeMs(1790510015501)).toBe(1790510015501);
+    expect(normalizeReadsbResponse({ ac: [], now: 1790510015501 }).providerTime).toBe(
+      1790510015501,
+    );
+  });
+
+  it('assente o non valido → null', () => {
+    for (const v of [undefined, null, '1790525916', Number.NaN, 0, -5]) {
+      expect(providerTimeMs(v)).toBeNull();
+    }
   });
 });
