@@ -5,14 +5,16 @@ import {
   UPSTREAM_TIMEOUT_MS,
   USER_AGENT,
 } from '../config.ts';
+import { AnonymousIds } from '../anonymize.ts';
 import { normalizeAdsbLolResponse } from '../normalize.ts';
 import type { Area, ProviderInfo } from '../types.ts';
 import { UpstreamError, type AircraftProvider, type ProviderFetchResult } from './types.ts';
 
 /**
  * Provider ADSB.lol — endpoint `GET /v2/point/{lat}/{lon}/{radius}`
- * (raggio intero in NM, max 250 da specifica OpenAPI; il server non lo impone
- * e un raggio decimale produce una risposta non JSON, quindi validiamo qui).
+ * (raggio intero in NM; ADSB.lol documenta max 250 ma non lo impone, e un
+ * raggio decimale produce una risposta non JSON). Qui imponiamo il massimo
+ * di EarthRadar (150 NM) come difesa in profondità.
  */
 
 export const ADSB_LOL_INFO: ProviderInfo = {
@@ -33,6 +35,7 @@ export interface AdsbLolProviderOptions {
   maxPositionAgeS?: number;
   fetchFn?: typeof fetch;
   now?: () => number;
+  anonymousIds?: AnonymousIds;
 }
 
 export function buildPointUrl(baseUrl: string, area: Area): string {
@@ -62,6 +65,8 @@ export function createAdsbLolProvider(opts: AdsbLolProviderOptions = {}): Aircra
   const maxPositionAgeS = opts.maxPositionAgeS ?? MAX_POSITION_AGE_S;
   const fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
   const now = opts.now ?? (() => Date.now());
+  // Un registro per istanza del provider (= per isolate): token stabili fra aggiornamenti.
+  const anonymousIds = opts.anonymousIds ?? new AnonymousIds({ now });
 
   async function fetchArea(area: Area): Promise<ProviderFetchResult> {
     const url = buildPointUrl(baseUrl, area);
@@ -124,7 +129,7 @@ export function createAdsbLolProvider(opts: AdsbLolProviderOptions = {}): Aircra
     }
     let normalized;
     try {
-      normalized = normalizeAdsbLolResponse(json, { maxPositionAgeS });
+      normalized = normalizeAdsbLolResponse(json, { maxPositionAgeS, anonymousIds });
     } catch (err) {
       throw new UpstreamError('invalid', `ADSB.lol payload rejected: ${String(err)}`);
     }

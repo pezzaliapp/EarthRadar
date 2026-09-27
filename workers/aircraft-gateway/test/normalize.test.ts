@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { AnonymousIds } from '../src/anonymize.ts';
 import {
   InvalidPayloadError,
   isPrivacyRestricted,
@@ -9,21 +10,30 @@ import {
 } from '../src/normalize.ts';
 import fixture from './fixtures/adsblol-point.json';
 
-function byHex(list: { icao24: string }[], hex: string) {
+function byHex<T extends { icao24: string | null }>(list: T[], hex: string) {
   return list.find((a) => a.icao24 === hex);
+}
+
+/** Aerei oscurati identificati da un campo non identificativo del fixture. */
+function restrictedAt<T extends { privacyRestricted: boolean; lat: number }>(
+  list: T[],
+  lat: number,
+) {
+  return list.find((a) => a.privacyRestricted && a.lat === lat);
 }
 
 describe('normalizeAdsbLolResponse', () => {
   const result = normalizeAdsbLolResponse(fixture);
 
   it('mantiene solo aerei validi, con posizione recente e senza duplicati', () => {
+    // Ordinati per id (codici ASCII: cifre < "anon-…" < "~"), non per ordine upstream.
     expect(result.aircraft.map((a) => a.icao24)).toEqual([
-      '4ca87c',
-      '3c1234',
-      'a0b1c2',
       '39df19',
-      '~2a0f11',
+      '4ca87c',
       '4d2222',
+      null,
+      null,
+      '~2a0f11',
     ]);
     expect(result.stats).toEqual({
       upstreamTotal: 10,
@@ -60,7 +70,7 @@ describe('normalizeAdsbLolResponse', () => {
       trackDeg: 92.4,
       trackSource: 'track',
     });
-    expect(byHex(result.aircraft, '3c1234')).toMatchObject({
+    expect(restrictedAt(result.aircraft, 45.5)).toMatchObject({
       trackDeg: 180,
       trackSource: 'true_heading',
     });
@@ -86,18 +96,36 @@ describe('normalizeAdsbLolResponse', () => {
     });
   });
 
-  it('oscura callsign e registrazione per LADD e PIA', () => {
-    expect(byHex(result.aircraft, '3c1234')).toMatchObject({
+  it('LADD e PIA: oscuramento completo di callsign, registrazione e ICAO', () => {
+    const ladd = restrictedAt(result.aircraft, 45.5);
+    const pia = restrictedAt(result.aircraft, 44.9);
+    expect(ladd).toMatchObject({
+      icao24: null,
       callsign: null,
       registration: null,
       typeCode: 'C25B',
       privacyRestricted: true,
     });
-    expect(byHex(result.aircraft, 'a0b1c2')).toMatchObject({
+    expect(pia).toMatchObject({
+      icao24: null,
       callsign: null,
       registration: null,
       privacyRestricted: true,
     });
+    for (const a of [ladd, pia]) expect(a?.id).toMatch(/^anon-[0-9a-f]{12}$/);
+    expect(ladd?.id).not.toBe(pia?.id);
+
+    // Nessuna traccia dei valori originali nel JSON servito, in nessuna forma.
+    const out = JSON.stringify(result).toLowerCase();
+    for (const leaked of ['3c1234', 'a0b1c2', 'priv01', 'd-priv', 'pia0001', 'n-pia']) {
+      expect(out).not.toContain(leaked);
+    }
+  });
+
+  it('aerei normali: id = icao24', () => {
+    for (const a of result.aircraft.filter((x) => !x.privacyRestricted)) {
+      expect(a.id).toBe(a.icao24);
+    }
   });
 
   it('non espone campi upstream non previsti', () => {
@@ -192,5 +220,42 @@ describe('helper', () => {
     expect(isPrivacyRestricted(9)).toBe(true);
     expect(isPrivacyRestricted('8')).toBe(false);
     expect(isPrivacyRestricted(null)).toBe(false);
+  });
+});
+
+describe('AnonymousIds', () => {
+  it('stesso aereo → stesso token nella finestra; nuovo token dopo la rotazione', () => {
+    let now = 0;
+    let n = 0;
+    const ids = new AnonymousIds({
+      rotateMs: 1_000,
+      now: () => now,
+      randomToken: () => (n++).toString(16).padStart(12, '0'),
+    });
+    const a = ids.idFor('3c1234');
+    expect(ids.idFor('3c1234')).toBe(a);
+    expect(ids.idFor('a0b1c2')).not.toBe(a);
+    now = 1_000;
+    expect(ids.idFor('3c1234')).not.toBe(a);
+  });
+
+  it('token casuali, non derivati dall’indirizzo', () => {
+    const x = new AnonymousIds().idFor('3c1234');
+    const y = new AnonymousIds().idFor('3c1234');
+    expect(x).toMatch(/^anon-[0-9a-f]{12}$/);
+    expect(x).not.toBe(y);
+    expect(x).not.toContain('3c1234');
+  });
+
+  it('rigenera in caso di collisione e rispetta maxEntries', () => {
+    const tokens = ['aaaaaaaaaaaa', 'aaaaaaaaaaaa', 'bbbbbbbbbbbb', 'cccccccccccc'];
+    const ids = new AnonymousIds({ maxEntries: 10, randomToken: () => tokens.shift() ?? 'f' });
+    expect(ids.idFor('1')).toBe('anon-aaaaaaaaaaaa');
+    expect(ids.idFor('2')).toBe('anon-bbbbbbbbbbbb');
+    const small = new AnonymousIds({ maxEntries: 2 });
+    small.idFor('1');
+    small.idFor('2');
+    small.idFor('3');
+    expect(small.size).toBeLessThanOrEqual(2);
   });
 });

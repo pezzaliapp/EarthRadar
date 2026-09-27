@@ -31,7 +31,8 @@ export function corsHeaders(decision: CorsDecision): Record<string, string> {
   if (decision.kind !== 'allowed') return { Vary: 'Origin' };
   return {
     'Access-Control-Allow-Origin': decision.origin,
-    'Access-Control-Expose-Headers': 'Retry-After, X-EarthRadar-Cache',
+    'Access-Control-Expose-Headers':
+      'Retry-After, Age, X-EarthRadar-Cache, X-EarthRadar-Stale-Reason',
     Vary: 'Origin',
   };
 }

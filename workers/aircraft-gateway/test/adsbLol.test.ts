@@ -9,7 +9,7 @@ import {
 import { UpstreamError } from '../src/providers/types.ts';
 import fixture from './fixtures/adsblol-point.json';
 
-const AREA = { lat: 45, lon: 7.5, radiusNm: 250 };
+const AREA = { lat: 45, lon: 7.5, radiusNm: 150 };
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -36,16 +36,17 @@ afterEach(() => {
 describe('buildPointUrl', () => {
   it('usa /v2/point con raggio intero', () => {
     expect(buildPointUrl('https://api.adsb.lol/', AREA)).toBe(
-      'https://api.adsb.lol/v2/point/45/7.5/250',
+      'https://api.adsb.lol/v2/point/45/7.5/150',
     );
     expect(buildPointUrl('https://x', { lat: -33.5, lon: -70.25, radiusNm: 25 })).toBe(
       'https://x/v2/point/-33.5/-70.25/25',
     );
   });
 
-  it('rifiuta raggi non interi o oltre 250 (difesa in profondità)', () => {
+  it('rifiuta raggi non interi o oltre 150 (difesa in profondità)', () => {
     expect(() => buildPointUrl('https://x', { ...AREA, radiusNm: 100.5 })).toThrow(RangeError);
-    expect(() => buildPointUrl('https://x', { ...AREA, radiusNm: 251 })).toThrow(RangeError);
+    expect(() => buildPointUrl('https://x', { ...AREA, radiusNm: 151 })).toThrow(RangeError);
+    expect(() => buildPointUrl('https://x', { ...AREA, radiusNm: 250 })).toThrow(RangeError);
     expect(() => buildPointUrl('https://x', { ...AREA, radiusNm: 0 })).toThrow(RangeError);
   });
 });
@@ -67,11 +68,23 @@ describe('createAdsbLolProvider.fetchArea', () => {
     const r = await provider.fetchArea(AREA);
     expect(fetchFn).toHaveBeenCalledTimes(1);
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('https://api.adsb.lol/v2/point/45/7.5/250');
+    expect(url).toBe('https://api.adsb.lol/v2/point/45/7.5/150');
     expect((init.headers as Record<string, string>)['User-Agent']).toMatch(/EarthRadar/);
     expect(r.aircraft).toHaveLength(6);
     expect(r.upstreamBytes).toBeGreaterThan(0);
     expect(provider.info).toBe(ADSB_LOL_INFO);
+  });
+
+  it('token anonimi LADD/PIA stabili fra due aggiornamenti dello stesso provider', async () => {
+    const provider = createAdsbLolProvider({ fetchFn: async () => jsonResponse(fixture) });
+    const ids = async () =>
+      (await provider.fetchArea(AREA)).aircraft
+        .filter((a) => a.privacyRestricted)
+        .map((a) => a.id)
+        .sort();
+    const first = await ids();
+    expect(first).toHaveLength(2);
+    expect(await ids()).toEqual(first);
   });
 
   it('429 → rate_limited con Retry-After', async () => {

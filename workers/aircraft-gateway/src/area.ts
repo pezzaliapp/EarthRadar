@@ -67,7 +67,9 @@ export function radiusBucket(radiusNm: number): number {
 /** Passo della griglia del centro, proporzionale al raggio (spostamento max ≈ passo·0,7). */
 export function gridStepDeg(bucketNm: number): number {
   if (bucketNm <= 50) return 0.1;
-  if (bucketNm <= 150) return 0.25;
+  if (bucketNm <= 100) return 0.25;
+  // 150 NM: griglia larga per massimizzare i cache hit. Scarto max del centro
+  // ≈ 21 NM all'equatore, ≈ 18 NM a 45° (≤ 14% del raggio).
   return 0.5;
 }
 

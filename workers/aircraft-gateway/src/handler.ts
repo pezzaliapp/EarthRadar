@@ -1,23 +1,35 @@
 import { areaCacheKey, parseAreaParams } from './area.ts';
-import { classifyUpstreamError, CircuitBreaker } from './breaker.ts';
-import { TtlCache } from './cache.ts';
+import { classifyUpstreamError, CircuitBreaker, type OpenCircuit } from './breaker.ts';
+import { Coalescer, SnapshotMemoryCache, type Snapshot } from './cache.ts';
 import {
+  CACHE_FRESH_TTL_S,
   CACHE_MAX_ENTRIES,
-  CACHE_TTL_MS,
+  CACHE_STALE_S,
+  EDGE_CACHE_KEY_ORIGIN,
+  EDGE_CACHE_KEY_PREFIX,
+  REFRESH_LOCK_S,
+  REFRESH_WAIT_STEP_MS,
+  REFRESH_WAIT_STEPS,
   SERVICE_NAME,
   SERVICE_VERSION,
-  SUCCESS_BROWSER_MAX_AGE_S,
   UPSTREAM_MAX_QUEUE,
   UPSTREAM_MIN_INTERVAL_MS,
 } from './config.ts';
 import { corsHeaders, decideCors, preflightHeaders, type CorsDecision } from './cors.ts';
+import { EdgeCache, type EdgeCacheStore } from './edgeCache.ts';
 import {
   UpstreamError,
   type AircraftProvider,
   type ProviderFetchResult,
 } from './providers/types.ts';
 import { ThrottleBusyError, UpstreamThrottle } from './throttle.ts';
-import type { AircraftResponse, Area, GatewayReason } from './types.ts';
+import type {
+  AircraftResponse,
+  Area,
+  CacheOutcome,
+  GatewayReason,
+  GatewayStatus,
+} from './types.ts';
 
 export interface WaitUntilContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -26,8 +38,13 @@ export interface WaitUntilContext {
 export interface GatewayDeps {
   provider: AircraftProvider;
   allowedOrigins: ReadonlySet<string>;
+  /** `caches.default` in produzione; null se non disponibile (test, Node). */
+  edgeStore?: EdgeCacheStore | null;
+  edgeKeyOrigin?: string;
   now?: () => number;
-  cacheTtlMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  freshTtlS?: number;
+  staleS?: number;
   throttle?: UpstreamThrottle;
 }
 
@@ -41,10 +58,26 @@ interface LastUpstream {
   count: number | null;
 }
 
+interface Failure {
+  httpStatus: number;
+  status: Exclude<GatewayStatus, 'ok'>;
+  reason: GatewayReason;
+  retryAfterS: number;
+}
+
+/** Motivo per cui si serve una fotografia oltre la freschezza. */
+type StaleReason = GatewayReason | 'refreshing';
+
+type LoadResult =
+  | { kind: 'snapshot'; snapshot: Snapshot; outcome: 'edge' | 'miss' }
+  | { kind: 'stale'; snapshot: Snapshot; staleReason: StaleReason; retryAfterS: number }
+  | { kind: 'failure'; failure: Failure };
+
 export interface Gateway {
   handle(request: Request, ctx?: WaitUntilContext): Promise<Response>;
   /** Solo per test. */
-  readonly cache: TtlCache<ProviderFetchResult>;
+  readonly memory: SnapshotMemoryCache;
+  readonly edge: EdgeCache;
   readonly breaker: CircuitBreaker;
 }
 
@@ -53,13 +86,30 @@ const BASE_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
 };
 
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export function createGateway(deps: GatewayDeps): Gateway {
   const now = deps.now ?? (() => Date.now());
-  const cache = new TtlCache<ProviderFetchResult>({
-    ttlMs: deps.cacheTtlMs ?? CACHE_TTL_MS,
+  const sleep = deps.sleep ?? defaultSleep;
+  const freshTtlS = deps.freshTtlS ?? CACHE_FRESH_TTL_S;
+  const staleS = deps.staleS ?? CACHE_STALE_S;
+  const freshMs = freshTtlS * 1000;
+  const info = deps.provider.info;
+
+  const memory = new SnapshotMemoryCache({
+    retainMs: (freshTtlS + staleS) * 1000,
     maxEntries: CACHE_MAX_ENTRIES,
     now,
   });
+  const edge = new EdgeCache({
+    store: deps.edgeStore ?? null,
+    keyOrigin: deps.edgeKeyOrigin ?? EDGE_CACHE_KEY_ORIGIN,
+    keyPrefix: EDGE_CACHE_KEY_PREFIX,
+    providerId: info.id,
+    retainS: freshTtlS + staleS,
+    now,
+  });
+  const coalescer = new Coalescer<LoadResult>();
   const breaker = new CircuitBreaker(now);
   const throttle =
     deps.throttle ??
@@ -69,7 +119,11 @@ export function createGateway(deps: GatewayDeps): Gateway {
       now,
     });
   let lastUpstream: LastUpstream | null = null;
-  const info = deps.provider.info;
+
+  const isFresh = (s: Snapshot) => now() - s.fetchedAt < freshMs;
+  const newest = (a: Snapshot | null, b: Snapshot | null) =>
+    !a ? b : !b ? a : a.fetchedAt >= b.fetchedAt ? a : b;
+  const secondsUntil = (ms: number) => Math.max(1, Math.ceil(ms / 1000));
 
   function json(
     body: unknown,
@@ -87,105 +141,179 @@ export function createGateway(deps: GatewayDeps): Gateway {
     return { v: 1, error, message, ...extra };
   }
 
-  function failureResponse(
-    cors: CorsDecision,
-    httpStatus: number,
-    status: 'unavailable' | 'rate_limited',
-    reason: GatewayReason,
-    retryAfterS: number,
-    requested: Area,
-    area: Area,
-  ): Response {
+  function buildSnapshot(area: Area, value: ProviderFetchResult): Snapshot {
+    const fetchedAt = now();
     const body: AircraftResponse = {
       v: 1,
-      status,
-      reason,
+      status: 'ok',
+      reason: null,
       provider: info,
       area,
-      requested,
+      providerTime: value.providerTime,
+      fetchedAt,
+      ttlS: freshTtlS,
+      retryAfterS: null,
+      count: value.aircraft.length,
+      stats: value.stats,
+      aircraft: value.aircraft,
+    };
+    return { body: JSON.stringify(body), fetchedAt, count: value.aircraft.length };
+  }
+
+  /** Il corpo è servito byte per byte: le informazioni per richiesta stanno negli header. */
+  function snapshotResponse(
+    snapshot: Snapshot,
+    outcome: CacheOutcome,
+    cors: CorsDecision,
+    stale?: { reason: StaleReason; retryAfterS: number },
+  ): Response {
+    const ageS = Math.max(0, Math.floor((now() - snapshot.fetchedAt) / 1000));
+    const headers: Record<string, string> = {
+      ...BASE_HEADERS,
+      ...corsHeaders(cors),
+      // Standard HTTP: il browser considera la risposta fresca per max-age − Age.
+      'Cache-Control': stale ? 'no-store' : `public, max-age=${freshTtlS}`,
+      Age: String(ageS),
+      'X-EarthRadar-Cache': outcome,
+    };
+    if (stale) {
+      headers['X-EarthRadar-Stale-Reason'] = stale.reason;
+      headers['Retry-After'] = String(stale.retryAfterS);
+    }
+    return new Response(snapshot.body, { status: 200, headers });
+  }
+
+  function failureResponse(failure: Failure, area: Area, cors: CorsDecision): Response {
+    const body: AircraftResponse = {
+      v: 1,
+      status: failure.status,
+      reason: failure.reason,
+      provider: info,
+      area,
       providerTime: null,
-      servedAt: now(),
-      cache: 'none',
-      retryAfterS,
+      fetchedAt: null,
+      ttlS: freshTtlS,
+      retryAfterS: failure.retryAfterS,
       count: 0,
       stats: null,
       aircraft: [],
     };
-    return json(body, httpStatus, cors, { 'Retry-After': String(retryAfterS) });
+    return json(body, failure.httpStatus, cors, {
+      'Retry-After': String(failure.retryAfterS),
+      'X-EarthRadar-Cache': 'none',
+    });
   }
 
-  async function handleAircraft(url: URL, cors: CorsDecision, ctx?: WaitUntilContext) {
-    const parsed = parseAreaParams(url.searchParams);
-    if (!parsed.ok) {
-      return json(errorBody('invalid_params', parsed.message, { field: parsed.field }), 400, cors);
-    }
-    const { requested, area } = parsed;
+  function circuitFailure(open: OpenCircuit): Failure {
+    return {
+      httpStatus: 503,
+      status: open.status,
+      reason: open.reason,
+      retryAfterS: secondsUntil(open.openUntil - now()),
+    };
+  }
 
-    const open = breaker.current();
-    if (open) {
-      const retryAfterS = Math.max(1, Math.ceil(breaker.remainingMs() / 1000));
-      // Circuito aperto: nessuna chiamata upstream, 503 con il motivo originale.
-      return failureResponse(cors, 503, open.status, open.reason, retryAfterS, requested, area);
+  function staleOr(stale: Snapshot | null, failure: Failure, reason?: StaleReason): LoadResult {
+    if (stale) {
+      return {
+        kind: 'stale',
+        snapshot: stale,
+        staleReason: reason ?? failure.reason,
+        retryAfterS: failure.retryAfterS,
+      };
+    }
+    return { kind: 'failure', failure };
+  }
+
+  /** Attende che un altro isolate pubblichi la fotografia (solo a freddo, lock altrui). */
+  async function waitForPeer(key: string): Promise<Snapshot | null> {
+    for (let i = 0; i < REFRESH_WAIT_STEPS; i += 1) {
+      await sleep(REFRESH_WAIT_STEP_MS);
+      const s = await edge.getSnapshot(key);
+      if (s && isFresh(s)) return s;
+    }
+    return null;
+  }
+
+  async function load(
+    key: string,
+    area: Area,
+    memStale: Snapshot | null,
+    ctx?: WaitUntilContext,
+  ): Promise<LoadResult> {
+    // 1. Cache API del data center: un altro isolate può averla già aggiornata.
+    const edgeSnap = await edge.getSnapshot(key);
+    if (edgeSnap) {
+      memory.set(key, edgeSnap);
+      if (isFresh(edgeSnap)) return { kind: 'snapshot', snapshot: edgeSnap, outcome: 'edge' };
+    }
+    const stale = newest(memStale, edgeSnap);
+
+    // 2. Breaker locale, poi quello condiviso dagli altri isolate.
+    let open = breaker.current();
+    if (!open) {
+      const shared = await edge.getBreaker();
+      if (shared) {
+        breaker.adopt(shared);
+        open = breaker.current();
+      }
+    }
+    if (open) return staleOr(stale, circuitFailure(open));
+
+    // 3. Un solo isolate per data center aggiorna una data area.
+    if (!(await edge.tryAcquireRefreshLock(key, REFRESH_LOCK_S))) {
+      const busy: Failure = {
+        httpStatus: 503,
+        status: 'rate_limited',
+        reason: 'gateway_busy',
+        retryAfterS: 2,
+      };
+      if (stale) return staleOr(stale, busy, 'refreshing');
+      const peer = await waitForPeer(key);
+      if (peer) {
+        memory.set(key, peer);
+        return { kind: 'snapshot', snapshot: peer, outcome: 'edge' };
+      }
+      return { kind: 'failure', failure: busy };
     }
 
+    // 4. Chiamata upstream.
     try {
-      const { value, cache: outcome } = await cache.getOrLoad(
-        areaCacheKey(area),
-        () => throttle.run(() => deps.provider.fetchArea(area)),
-        (p) => ctx?.waitUntil(p.catch(() => undefined)),
-      );
-      if (outcome === 'miss') {
-        lastUpstream = {
-          ok: true,
-          at: now(),
-          reason: null,
-          httpStatus: 200,
-          upstreamMs: value.upstreamMs,
-          upstreamBytes: value.upstreamBytes,
-          count: value.aircraft.length,
-        };
-      }
-      const body: AircraftResponse = {
-        v: 1,
-        status: 'ok',
+      const value = await throttle.run(() => deps.provider.fetchArea(area));
+      const snapshot = buildSnapshot(area, value);
+      memory.set(key, snapshot);
+      const put = edge.putSnapshot(key, snapshot);
+      if (ctx) ctx.waitUntil(put);
+      else await put;
+      lastUpstream = {
+        ok: true,
+        at: snapshot.fetchedAt,
         reason: null,
-        provider: info,
-        area,
-        requested,
-        providerTime: value.providerTime,
-        servedAt: now(),
-        cache: outcome,
-        retryAfterS: null,
-        count: value.aircraft.length,
-        stats: value.stats,
-        aircraft: value.aircraft,
+        httpStatus: 200,
+        upstreamMs: value.upstreamMs,
+        upstreamBytes: value.upstreamBytes,
+        count: snapshot.count,
       };
-      const extra: Record<string, string> = {
-        'Cache-Control': `public, max-age=${SUCCESS_BROWSER_MAX_AGE_S}`,
-        'X-EarthRadar-Cache': outcome,
-      };
-      if (outcome === 'miss') {
-        extra['Server-Timing'] =
-          `upstream;dur=${value.upstreamMs}, normalize;dur=${value.normalizeMs}`;
-      }
-      return json(body, 200, cors, extra);
+      return { kind: 'snapshot', snapshot, outcome: 'miss' };
     } catch (err) {
       if (err instanceof ThrottleBusyError) {
-        // Nessuna chiamata upstream fatta: niente breaker, il client riprova a breve.
-        const retryAfterS = Math.max(1, Math.ceil(err.retryAfterMs / 1000));
-        return failureResponse(
-          cors,
-          503,
-          'rate_limited',
-          'gateway_busy',
-          retryAfterS,
-          requested,
-          area,
-        );
+        // Nessuna chiamata upstream fatta: niente breaker.
+        return staleOr(stale, {
+          httpStatus: 503,
+          status: 'rate_limited',
+          reason: 'gateway_busy',
+          retryAfterS: secondsUntil(err.retryAfterMs),
+        });
       }
       if (!(err instanceof UpstreamError)) throw err;
       const failure = classifyUpstreamError(err);
       breaker.trip(failure);
+      const tripped = breaker.current();
+      if (tripped) {
+        const put = edge.putBreaker(tripped);
+        if (ctx) ctx.waitUntil(put);
+        else await put;
+      }
       lastUpstream = {
         ok: false,
         at: now(),
@@ -195,16 +323,41 @@ export function createGateway(deps: GatewayDeps): Gateway {
         upstreamBytes: null,
         count: null,
       };
-      const retryAfterS = Math.max(1, Math.ceil(failure.pauseMs / 1000));
-      return failureResponse(
-        cors,
-        failure.httpStatus,
-        failure.status,
-        failure.reason,
-        retryAfterS,
-        requested,
-        area,
-      );
+      return staleOr(stale, {
+        httpStatus: failure.httpStatus,
+        status: failure.status,
+        reason: failure.reason,
+        retryAfterS: secondsUntil(failure.pauseMs),
+      });
+    }
+  }
+
+  async function handleAircraft(url: URL, cors: CorsDecision, ctx?: WaitUntilContext) {
+    const parsed = parseAreaParams(url.searchParams);
+    if (!parsed.ok) {
+      return json(errorBody('invalid_params', parsed.message, { field: parsed.field }), 400, cors);
+    }
+    const { area } = parsed;
+    const key = areaCacheKey(area);
+
+    const mem = memory.get(key);
+    if (mem && isFresh(mem)) return snapshotResponse(mem, 'hit', cors);
+
+    const { value, leader } = await coalescer.run(
+      key,
+      () => load(key, area, mem, ctx),
+      (p) => ctx?.waitUntil(p.catch(() => undefined)),
+    );
+    switch (value.kind) {
+      case 'snapshot':
+        return snapshotResponse(value.snapshot, leader ? value.outcome : 'coalesced', cors);
+      case 'stale':
+        return snapshotResponse(value.snapshot, 'stale', cors, {
+          reason: value.staleReason,
+          retryAfterS: value.retryAfterS,
+        });
+      case 'failure':
+        return failureResponse(value.failure, area, cors);
     }
   }
 
@@ -217,7 +370,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
         service: SERVICE_NAME,
         version: SERVICE_VERSION,
         provider: info,
-        // Stato per isolate: istanze diverse possono riportare valori diversi.
+        // Stato dell'isolate che risponde: istanze diverse possono riportare valori diversi.
         scope: 'isolate',
         breaker: open
           ? {
@@ -228,7 +381,12 @@ export function createGateway(deps: GatewayDeps): Gateway {
             }
           : { open: false },
         lastUpstream,
-        cache: { entries: cache.size, ttlS: (deps.cacheTtlMs ?? CACHE_TTL_MS) / 1000 },
+        cache: {
+          ttlS: freshTtlS,
+          staleS,
+          memoryEntries: memory.size,
+          edge: edge.enabled,
+        },
         servedAt: now(),
       },
       200,
@@ -265,7 +423,8 @@ export function createGateway(deps: GatewayDeps): Gateway {
   }
 
   return {
-    cache,
+    memory,
+    edge,
     breaker,
     async handle(request, ctx) {
       let res: Response;

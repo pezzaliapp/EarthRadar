@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { TtlCache } from '../src/cache.ts';
+import { Coalescer, SnapshotMemoryCache, type Snapshot } from '../src/cache.ts';
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -12,65 +12,68 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-describe('TtlCache', () => {
-  it('miss → hit entro il TTL → miss dopo la scadenza', async () => {
-    let now = 1000;
-    const cache = new TtlCache<number>({ ttlMs: 10_000, maxEntries: 10, now: () => now });
-    const loader = vi.fn(async () => 42);
+const snap = (fetchedAt: number, body = `b${fetchedAt}`): Snapshot => ({
+  body,
+  fetchedAt,
+  count: 0,
+});
 
-    expect(await cache.getOrLoad('k', loader)).toEqual({ value: 42, cache: 'miss' });
-    now += 9_999;
-    expect(await cache.getOrLoad('k', loader)).toEqual({ value: 42, cache: 'hit' });
+describe('SnapshotMemoryCache', () => {
+  it('conserva la voce fino a fetchedAt + retain, calcolato su fetchedAt', () => {
+    let now = 1_000;
+    const cache = new SnapshotMemoryCache({ retainMs: 150_000, maxEntries: 10, now: () => now });
+    // Arrivata dalla Cache API già vecchia di 100 s: non ringiovanisce.
+    cache.set('k', snap(now - 100_000));
+    now += 50_000;
+    expect(cache.get('k')).not.toBeNull();
     now += 1;
-    expect(await cache.getOrLoad('k', loader)).toEqual({ value: 42, cache: 'miss' });
-    expect(loader).toHaveBeenCalledTimes(2);
+    expect(cache.get('k')).toBeNull();
+    expect(cache.size).toBe(0);
   });
 
-  it('coalescing: N richieste concorrenti → 1 sola chiamata al loader', async () => {
-    const cache = new TtlCache<string>({ ttlMs: 10_000, maxEntries: 10 });
-    const d = deferred<string>();
-    const loader = vi.fn(() => d.promise);
-    const onLoad = vi.fn();
+  it('mantiene sempre la fotografia più recente', () => {
+    const cache = new SnapshotMemoryCache({ retainMs: 150_000, maxEntries: 10, now: () => 10 });
+    cache.set('k', snap(5, 'nuova'));
+    cache.set('k', snap(3, 'vecchia'));
+    expect(cache.get('k')?.body).toBe('nuova');
+  });
 
-    const calls = [
-      cache.getOrLoad('k', loader, onLoad),
-      cache.getOrLoad('k', loader, onLoad),
-      cache.getOrLoad('k', loader, onLoad),
-    ];
-    expect(cache.inflightCount).toBe(1);
+  it('rispetta maxEntries eliminando le voci più vecchie', () => {
+    const cache = new SnapshotMemoryCache({ retainMs: 150_000, maxEntries: 2, now: () => 10 });
+    cache.set('a', snap(1));
+    cache.set('b', snap(2));
+    cache.set('c', snap(3));
+    expect(cache.size).toBe(2);
+    expect(cache.get('a')).toBeNull();
+    expect(cache.get('c')).not.toBeNull();
+  });
+});
+
+describe('Coalescer', () => {
+  it('N richieste concorrenti → 1 solo caricamento', async () => {
+    const c = new Coalescer<string>();
+    const d = deferred<string>();
+    const load = vi.fn(() => d.promise);
+    const onStart = vi.fn();
+    const calls = [c.run('k', load, onStart), c.run('k', load, onStart), c.run('k', load, onStart)];
+    expect(c.inflightCount).toBe(1);
     d.resolve('data');
     const results = await Promise.all(calls);
-
-    expect(loader).toHaveBeenCalledTimes(1);
-    expect(onLoad).toHaveBeenCalledTimes(1);
-    expect(results.map((r) => r.cache)).toEqual(['miss', 'coalesced', 'coalesced']);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(results.map((r) => r.leader)).toEqual([true, false, false]);
     expect(results.every((r) => r.value === 'data')).toBe(true);
-    expect(cache.inflightCount).toBe(0);
+    expect(c.inflightCount).toBe(0);
   });
 
-  it('gli errori non vengono memorizzati e arrivano a tutti i richiedenti', async () => {
-    const cache = new TtlCache<string>({ ttlMs: 10_000, maxEntries: 10 });
+  it('gli errori arrivano a tutti e non bloccano i caricamenti successivi', async () => {
+    const c = new Coalescer<string>();
     const d = deferred<string>();
-    const loader = vi.fn(() => d.promise);
-    const a = cache.getOrLoad('k', loader);
-    const b = cache.getOrLoad('k', loader);
+    const a = c.run('k', () => d.promise);
+    const b = c.run('k', () => d.promise);
     d.reject(new Error('boom'));
     await expect(a).rejects.toThrow('boom');
     await expect(b).rejects.toThrow('boom');
-    expect(cache.size).toBe(0);
-    expect(cache.inflightCount).toBe(0);
-
-    const ok = await cache.getOrLoad('k', async () => 'ok');
-    expect(ok.cache).toBe('miss');
-  });
-
-  it('chiavi diverse non si mescolano; rispetta maxEntries', async () => {
-    const cache = new TtlCache<string>({ ttlMs: 10_000, maxEntries: 2 });
-    await cache.getOrLoad('a', async () => 'A');
-    await cache.getOrLoad('b', async () => 'B');
-    await cache.getOrLoad('c', async () => 'C');
-    expect(cache.size).toBe(2);
-    expect((await cache.getOrLoad('c', async () => 'x')).cache).toBe('hit');
-    expect((await cache.getOrLoad('a', async () => 'A2')).value).toBe('A2');
+    expect((await c.run('k', async () => 'ok')).value).toBe('ok');
   });
 });

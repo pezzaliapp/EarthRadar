@@ -1,10 +1,17 @@
 # EarthRadar — aircraft gateway (Cloudflare Workers, piano Free).
 # Nessun binding a pagamento: niente KV, D1, Durable Objects, R2.
-# Deploy solo su *.workers.dev finché il DNS del dominio non è verificato.
+#
+# Servito SOLO dal Custom Domain aircraft.alessandropezzali.it (zona DNS su
+# Cloudflare): lì la Cache API (caches.default) è attiva e condivisa fra gli
+# isolate di ogni data center. Su *.workers.dev la Cache API non ha effetto,
+# quindi workers.dev e gli URL di anteprima sono disattivati: nessun accesso
+# che scavalchi la cache condivisa e consumi quota ADSB.lol.
 name = "earthradar-aircraft"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
-workers_dev = true
+workers_dev = false
+preview_urls = false
+routes = [{ pattern = "aircraft.alessandropezzali.it", custom_domain = true }]
 
 [vars]
 # Origini autorizzate (CORS allowlist), separate da virgola.

@@ -9,8 +9,17 @@ export type PositionSource = 'adsb' | 'mlat' | 'tisb' | 'modes' | 'other';
 export type TrackSource = 'track' | 'true_heading' | 'calc_track';
 
 export interface AircraftDTO {
-  /** Indirizzo ICAO 24-bit in minuscolo. Prefisso `~` = indirizzo non ICAO (es. TIS-B). */
-  icao24: string;
+  /**
+   * Identificativo stabile per la UI. Aerei normali: uguale a `icao24`.
+   * Aerei LADD/PIA: token anonimo `anon-<12 hex>` casuale, non derivato
+   * dall'indirizzo ICAO (non reversibile) e ruotato periodicamente.
+   */
+  id: string;
+  /**
+   * Indirizzo ICAO 24-bit in minuscolo. Prefisso `~` = indirizzo non ICAO (es. TIS-B).
+   * Null se LADD/PIA: l'indirizzo originale non è mai esposto.
+   */
+  icao24: string | null;
   /** Null se assente o oscurato (LADD/PIA). */
   callsign: string | null;
   /** Null se assente o oscurato (LADD/PIA). */
@@ -39,7 +48,7 @@ export interface AircraftDTO {
   positionAgeS: number | null;
   /** Secondi dall'ultimo messaggio di qualunque tipo. */
   lastSeenS: number | null;
-  /** True se l'aereo è in LADD o usa un indirizzo PIA: identità oscurata. */
+  /** True se l'aereo è in LADD o usa un indirizzo PIA: callsign, registrazione e ICAO oscurati. */
   privacyRestricted: boolean;
 }
 
@@ -77,7 +86,17 @@ export type GatewayReason =
   /** Troppe richieste upstream in coda nel gateway: nessuna chiamata effettuata. */
   | 'gateway_busy';
 
-export type CacheOutcome = 'hit' | 'miss' | 'coalesced' | 'none';
+/**
+ * Esito cache, solo nell'header `X-EarthRadar-Cache` (il corpo è condiviso
+ * byte per byte fra tutti gli utenti della stessa area):
+ *  - `hit`: memoria dell'isolate;
+ *  - `edge`: Cache API del data center;
+ *  - `miss`: chiamata upstream fatta per questa richiesta;
+ *  - `coalesced`: in attesa della stessa chiamata upstream di un'altra richiesta;
+ *  - `stale`: fotografia oltre la freschezza (upstream in errore/pausa o aggiornamento in corso);
+ *  - `none`: nessun dato (risposta di errore).
+ */
+export type CacheOutcome = 'hit' | 'edge' | 'miss' | 'coalesced' | 'stale' | 'none';
 
 export interface NormalizeStats {
   /** Numero di aerei nella risposta upstream prima dei filtri. */
@@ -96,14 +115,14 @@ export interface AircraftResponse {
   status: GatewayStatus;
   reason: GatewayReason | null;
   provider: ProviderInfo;
-  /** Area effettivamente interrogata (quantizzata). */
+  /** Area effettivamente interrogata (quantizzata): uguale per tutti i client della stessa cella. */
   area: Area | null;
-  /** Area richiesta dal client, dopo validazione. */
-  requested: Area | null;
   /** Timestamp del provider (ms epoch), se fornito. */
   providerTime: number | null;
-  servedAt: number;
-  cache: CacheOutcome;
+  /** Quando il gateway ha ottenuto questi dati dal provider (ms epoch). Null se nessun dato. */
+  fetchedAt: number | null;
+  /** Freschezza nominale della fotografia in secondi. */
+  ttlS: number;
   retryAfterS: number | null;
   count: number;
   stats: NormalizeStats | null;

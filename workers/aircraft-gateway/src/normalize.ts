@@ -1,3 +1,4 @@
+import { AnonymousIds } from './anonymize.ts';
 import { MAX_POSITION_AGE_S } from './config.ts';
 import type { AircraftDTO, NormalizeStats, PositionSource, TrackSource } from './types.ts';
 
@@ -9,7 +10,10 @@ import type { AircraftDTO, NormalizeStats, PositionSource, TrackSource } from '.
  *  - lat/lon obbligatori e validi, altrimenti l'aereo è scartato;
  *  - posizioni più vecchie di `maxPositionAgeS` scartate;
  *  - direzione: track → true_heading → calc_track (mai mag_heading);
- *  - LADD / PIA (dbFlags) → callsign e registrazione oscurati.
+ *  - LADD / PIA (dbFlags) → oscuramento completo: callsign, registrazione e
+ *    indirizzo ICAO mai esposti; `id` è un token anonimo casuale;
+ *  - output ordinato per `id`, così l'ordine upstream (che dipende
+ *    dall'indirizzo) non lascia trapelare nulla degli aerei oscurati.
  */
 
 const FT_TO_M = 0.3048;
@@ -33,6 +37,11 @@ export class InvalidPayloadError extends Error {
 
 export interface NormalizeOptions {
   maxPositionAgeS?: number;
+  /**
+   * Registro dei token anonimi LADD/PIA. Se assente se ne crea uno nuovo
+   * per chiamata: token casuali, stabili solo all'interno della risposta.
+   */
+  anonymousIds?: AnonymousIds;
 }
 
 export interface NormalizedAircraftList {
@@ -43,7 +52,9 @@ export interface NormalizedAircraftList {
 
 type RawAircraft = Record<string, unknown>;
 
-type ItemResult = { ok: true; value: AircraftDTO } | { ok: false; reason: 'invalid' | 'stale' };
+type ItemResult =
+  | { ok: true; value: AircraftDTO; key: string }
+  | { ok: false; reason: 'invalid' | 'stale' };
 
 function finite(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -100,8 +111,9 @@ export function normalizeAdsbLolAircraft(raw: unknown, opts: NormalizeOptions = 
     return { ok: false, reason: 'invalid' };
   const a = raw as RawAircraft;
 
-  const hex = typeof a.hex === 'string' ? a.hex.trim() : '';
-  if (!HEX_RE.test(hex)) return { ok: false, reason: 'invalid' };
+  const rawHex = typeof a.hex === 'string' ? a.hex.trim() : '';
+  if (!HEX_RE.test(rawHex)) return { ok: false, reason: 'invalid' };
+  const hex = rawHex.toLowerCase();
 
   const lat = finite(a.lat);
   const lon = finite(a.lon);
@@ -137,11 +149,15 @@ export function normalizeAdsbLolAircraft(raw: unknown, opts: NormalizeOptions = 
 
   const seen = finite(a.seen);
   const privacyRestricted = isPrivacyRestricted(a.dbFlags);
+  const anon = privacyRestricted ? (opts.anonymousIds ?? new AnonymousIds()) : null;
 
   return {
     ok: true,
+    // Chiave interna per la deduplicazione: mai inclusa nel DTO se oscurato.
+    key: hex,
     value: {
-      icao24: hex.toLowerCase(),
+      id: anon ? anon.idFor(hex) : hex,
+      icao24: privacyRestricted ? null : hex,
       callsign: privacyRestricted ? null : cleanString(a.flight, 8),
       registration: privacyRestricted ? null : cleanString(a.r, 12),
       typeCode: cleanString(a.t, 8),
@@ -179,21 +195,26 @@ export function normalizeAdsbLolResponse(
     upstreamTotal: body.ac.length,
     dropped: { invalid: 0, stalePosition: 0, duplicate: 0 },
   };
+  const itemOpts: NormalizeOptions = {
+    ...opts,
+    anonymousIds: opts.anonymousIds ?? new AnonymousIds(),
+  };
   const seen = new Set<string>();
   const aircraft: AircraftDTO[] = [];
   for (const item of body.ac) {
-    const r = normalizeAdsbLolAircraft(item, opts);
+    const r = normalizeAdsbLolAircraft(item, itemOpts);
     if (!r.ok) {
       if (r.reason === 'stale') stats.dropped.stalePosition += 1;
       else stats.dropped.invalid += 1;
       continue;
     }
-    if (seen.has(r.value.icao24)) {
+    if (seen.has(r.key)) {
       stats.dropped.duplicate += 1;
       continue;
     }
-    seen.add(r.value.icao24);
+    seen.add(r.key);
     aircraft.push(r.value);
   }
+  aircraft.sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
   return { providerTime: finite(body.now), aircraft, stats };
 }

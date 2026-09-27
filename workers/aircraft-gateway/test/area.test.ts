@@ -34,7 +34,8 @@ describe('parseAreaParams — validazione rigorosa', () => {
     ['lat=&lon=7&r=10', 'lat'],
     ['lat=45&lat=46&lon=7&r=10', 'lat'],
     ['lat=45&lon=7&r=0', 'r'],
-    ['lat=45&lon=7&r=251', 'r'],
+    ['lat=45&lon=7&r=151', 'r'],
+    ['lat=45&lon=7&r=250', 'r'],
     ['lat=45&lon=7&r=300', 'r'],
     ['lat=45&lon=7&r=100.5', 'r'],
     ['lat=45&lon=7&r=-5', 'r'],
@@ -47,7 +48,7 @@ describe('parseAreaParams — validazione rigorosa', () => {
   });
 
   it('accetta i limiti esatti', () => {
-    expect(parse('lat=90&lon=180&r=250').ok).toBe(true);
+    expect(parse('lat=90&lon=180&r=150').ok).toBe(true);
     expect(parse('lat=-90&lon=-180&r=1').ok).toBe(true);
   });
 });
@@ -57,21 +58,22 @@ describe('quantizzazione', () => {
     expect(radiusBucket(1)).toBe(25);
     expect(radiusBucket(25)).toBe(25);
     expect(radiusBucket(26)).toBe(50);
+    expect(radiusBucket(51)).toBe(100);
     expect(radiusBucket(120)).toBe(150);
-    expect(radiusBucket(151)).toBe(250);
-    expect(radiusBucket(250)).toBe(250);
+    expect(radiusBucket(150)).toBe(150);
   });
 
   it('gridStepDeg proporzionale al raggio', () => {
     expect(gridStepDeg(25)).toBe(0.1);
+    expect(gridStepDeg(50)).toBe(0.1);
     expect(gridStepDeg(100)).toBe(0.25);
-    expect(gridStepDeg(250)).toBe(0.5);
+    expect(gridStepDeg(150)).toBe(0.5);
   });
 
   it('client vicini condividono la stessa chiave', () => {
-    const a = quantizeArea({ lat: 45.07, lon: 7.69, radiusNm: 240 });
-    const b = quantizeArea({ lat: 45.2, lon: 7.6, radiusNm: 200 });
-    expect(a).toEqual({ lat: 45, lon: 7.5, radiusNm: 250 });
+    const a = quantizeArea({ lat: 45.07, lon: 7.69, radiusNm: 140 });
+    const b = quantizeArea({ lat: 45.2, lon: 7.6, radiusNm: 101 });
+    expect(a).toEqual({ lat: 45, lon: 7.5, radiusNm: 150 });
     expect(areaCacheKey(a)).toBe(areaCacheKey(b));
   });
 
@@ -82,14 +84,14 @@ describe('quantizzazione', () => {
   });
 
   it('antimeridiano: 180 e -180 collassano', () => {
-    expect(quantizeArea({ lat: 0, lon: 179.9, radiusNm: 250 }).lon).toBe(-180);
-    expect(quantizeArea({ lat: 0, lon: -179.9, radiusNm: 250 }).lon).toBe(-180);
+    expect(quantizeArea({ lat: 0, lon: 179.9, radiusNm: 150 }).lon).toBe(-180);
+    expect(quantizeArea({ lat: 0, lon: -179.9, radiusNm: 150 }).lon).toBe(-180);
     expect(wrapLon(190)).toBe(-170);
     expect(wrapLon(-190)).toBe(170);
   });
 
   it('poli restano nel range', () => {
-    expect(quantizeArea({ lat: 89.9, lon: 0, radiusNm: 250 }).lat).toBe(90);
-    expect(quantizeArea({ lat: -89.9, lon: 0, radiusNm: 250 }).lat).toBe(-90);
+    expect(quantizeArea({ lat: 89.9, lon: 0, radiusNm: 150 }).lat).toBe(90);
+    expect(quantizeArea({ lat: -89.9, lon: 0, radiusNm: 150 }).lat).toBe(-90);
   });
 });

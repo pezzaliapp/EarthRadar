@@ -4,15 +4,15 @@ import { CircuitBreaker, classifyUpstreamError } from '../src/breaker.ts';
 import { UpstreamError } from '../src/providers/types.ts';
 
 describe('classifyUpstreamError', () => {
-  it('429: rispetta Retry-After entro [5 s, 300 s], default 15 s', () => {
+  it('429: rispetta Retry-After entro [10 s, 300 s], default 30 s', () => {
     const e = (ms: number | null) => new UpstreamError('rate_limited', 'x', 429, ms);
     expect(classifyUpstreamError(e(null))).toMatchObject({
       httpStatus: 503,
       status: 'rate_limited',
       reason: 'upstream_429',
-      pauseMs: 15_000,
+      pauseMs: 30_000,
     });
-    expect(classifyUpstreamError(e(2_000)).pauseMs).toBe(5_000);
+    expect(classifyUpstreamError(e(2_000)).pauseMs).toBe(10_000);
     expect(classifyUpstreamError(e(120_000)).pauseMs).toBe(120_000);
     expect(classifyUpstreamError(e(3_600_000)).pauseMs).toBe(300_000);
   });
@@ -45,5 +45,19 @@ describe('CircuitBreaker', () => {
     now = 30_000;
     expect(b.current()).toBeNull();
     expect(b.remainingMs()).toBe(0);
+  });
+
+  it('adopt: prende il circuito di un altro isolate solo se scade più tardi', () => {
+    let now = 0;
+    const b = new CircuitBreaker(() => now);
+    const open = { status: 'rate_limited', reason: 'upstream_429', openUntil: 20_000 } as const;
+    b.adopt(open);
+    expect(b.current()).toMatchObject({ reason: 'upstream_429', openUntil: 20_000 });
+    b.adopt({ ...open, openUntil: 10_000 });
+    expect(b.current()?.openUntil).toBe(20_000);
+    b.adopt({ ...open, openUntil: -1 });
+    expect(b.current()?.openUntil).toBe(20_000);
+    now = 20_000;
+    expect(b.current()).toBeNull();
   });
 });

@@ -13,12 +13,12 @@ import { USER_AGENT } from '../src/config.ts';
 import type { Area } from '../src/types.ts';
 
 const AREAS: Array<{ name: string; area: Area }> = [
-  { name: 'Nord Italia 250 NM', area: { lat: 45, lon: 9.5, radiusNm: 250 } },
-  { name: 'Londra 250 NM', area: { lat: 51.5, lon: -0.5, radiusNm: 250 } },
-  { name: 'Francoforte 250 NM', area: { lat: 50, lon: 8.5, radiusNm: 250 } },
-  { name: 'New York 150 NM', area: { lat: 40.75, lon: -73.75, radiusNm: 150 } },
+  { name: 'Nord Italia 150 NM', area: { lat: 45, lon: 9.5, radiusNm: 150 } },
+  { name: 'Londra 150 NM', area: { lat: 51.5, lon: -0.5, radiusNm: 150 } },
+  { name: 'Francoforte 150 NM', area: { lat: 50, lon: 8.5, radiusNm: 150 } },
+  { name: 'New York 150 NM', area: { lat: 40.5, lon: -74, radiusNm: 150 } },
   { name: 'Reggio Emilia 50 NM', area: { lat: 44.7, lon: 10.6, radiusNm: 50 } },
-  { name: 'Atlantico 250 NM', area: { lat: 0, lon: -30, radiusNm: 250 } },
+  { name: 'Atlantico 150 NM', area: { lat: 0, lon: -30, radiusNm: 150 } },
 ];
 const ITERATIONS = 30;
 

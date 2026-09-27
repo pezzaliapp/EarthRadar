@@ -3,8 +3,10 @@ import type { UpstreamError } from './providers/types.ts';
 import type { GatewayReason, GatewayStatus } from './types.ts';
 
 /**
- * Circuit breaker per isolate: dopo un errore upstream smettiamo di chiamare
- * ADSB.lol per un intervallo, rispondendo subito con lo stato noto.
+ * Circuit breaker: dopo un errore upstream smettiamo di chiamare ADSB.lol
+ * per un intervallo, rispondendo con l'ultima fotografia (stale) o con lo
+ * stato noto. Lo stato è locale all'isolate e propagato agli altri isolate
+ * del data center tramite la Cache API (vedi edgeCache.ts → `adopt`).
  * Protegge un servizio gratuito da martellamenti durante un disservizio.
  */
 
@@ -94,6 +96,13 @@ export class CircuitBreaker {
       reason: failure.reason,
       openUntil: this.now() + failure.pauseMs,
     };
+  }
+
+  /** Adotta un circuito aperto da un altro isolate (se scade più tardi di quello locale). */
+  adopt(open: OpenCircuit): void {
+    const current = this.current();
+    if (open.openUntil <= this.now()) return;
+    if (!current || open.openUntil > current.openUntil) this.open = { ...open };
   }
 
   reset(): void {
