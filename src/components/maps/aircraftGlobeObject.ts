@@ -18,6 +18,9 @@ const EARTH_RADIUS_M = 6_371_000;
  */
 const SURFACE_LIFT_RATIO = 0.0003;
 
+/** Riduzione della dimensione degli aerei non selezionati. */
+const UNSELECTED_SCALE = 0.78;
+
 export type AircraftSymbolStyle = 'flight' | 'ground' | 'unknown-altitude' | 'selected';
 
 export interface AircraftGlobeState {
@@ -125,7 +128,8 @@ export function updateAircraftObject(
 ): void {
   const p = globeCartesian(s.lat, s.lon, globeAltitudeRatio(s), globeRadius);
   obj.position.set(p.x, p.y, p.z);
-  obj.scale.setScalar(scale);
+  // Aerei normali ~22 % più piccoli; il selezionato resta a dimensione piena.
+  obj.scale.setScalar(s.selected ? scale : scale * UNSELECTED_SCALE);
   obj.setRotationFromEuler(surfaceEuler(s.lat, s.lon));
   const material = materials[symbolStyle(s)];
   const plane = obj.getObjectByName('plane') as THREE.Mesh | undefined;

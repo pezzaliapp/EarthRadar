@@ -26,7 +26,7 @@
   "home": {
     "headline": "What's happening on Earth right now?",
     "intro": "Public USGS, NASA, NOAA, CelesTrak, FlyItalyADSB and Open-Meteo data combined in a single live view.",
-    "phase1Notice": "Phase 1 live: USGS quakes + switchable NASA GIBS tiles + terminator. Satellites, aircraft, weather, FIRMS, EONET, ISS still to come.",
+    "phase1Notice": "Live: USGS quakes, satellites, ISS, real aircraft (FlyItalyADSB), weather, FIRMS fires, EONET events, NASA GIBS overlays and terminator.",
     "mapTitle": "Live map",
     "listingTitle": "Earthquakes near map center",
     "openLayers": "Open layer panel",

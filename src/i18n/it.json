@@ -26,7 +26,7 @@
   "home": {
     "headline": "Cosa sta succedendo sulla Terra adesso?",
     "intro": "Dati pubblici USGS, NASA, NOAA, CelesTrak, FlyItalyADSB e Open-Meteo combinati in un'unica vista live.",
-    "phase1Notice": "Fase 1 attiva: terremoti USGS live + tile NASA GIBS commutabili + terminatore. Restano da aggiungere satelliti, aerei, meteo, FIRMS, EONET, ISS.",
+    "phase1Notice": "Live: terremoti USGS, satelliti, ISS, aerei reali (FlyItalyADSB), meteo, incendi FIRMS, eventi EONET, overlay NASA GIBS e terminatore.",
     "mapTitle": "Mappa live",
     "listingTitle": "Terremoti vicino al centro mappa",
     "openLayers": "Apri pannello layer",

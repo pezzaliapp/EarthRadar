@@ -125,6 +125,15 @@ describe('simbolo aereo 3D — dimensione', () => {
     updateAircraftObject(a, state(), R, 1);
     updateAircraftObject(b, state(), R, 0.2);
     expect(b.position.equals(a.position)).toBe(true);
-    expect(b.scale.x).toBe(0.2);
+    expect(b.scale.x).toBeCloseTo(0.2 * 0.78, 10);
+  });
+
+  it('aereo selezionato a dimensione piena, gli altri ridotti del 22 %', () => {
+    const normal = createAircraftObject();
+    const selected = createAircraftObject();
+    updateAircraftObject(normal, state({ selected: false }), R, 0.5);
+    updateAircraftObject(selected, state({ selected: true }), R, 0.5);
+    expect(selected.scale.x).toBe(0.5);
+    expect(normal.scale.x).toBeCloseTo(0.39, 10);
   });
 });
