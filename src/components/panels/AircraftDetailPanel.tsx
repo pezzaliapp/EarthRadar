@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAircraftView } from '@/hooks/useAircraftFeed';
+import { positionAgeNowS, useAircraftStore } from '@/store/aircraftStore';
 import { aircraftTitle } from '@/lib/aircraftFormat';
 import { renderAltitude } from '@/lib/aircraftMotion';
 import { buildShareUrl } from '@/lib/buildShareUrl';
@@ -19,6 +20,14 @@ export default function AircraftDetailPanel() {
   const selected = useLayersStore((s) => s.selectedAircraft);
   const setSelected = useLayersStore((s) => s.setSelectedAircraft);
   const { aircraft, snapshot } = useAircraftView();
+  const feedState = useAircraftStore();
+  // Orologio a 1 s solo con un aereo selezionato (età della posizione).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!selected) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, [selected]);
 
   const record: GatewayAircraft | null = useMemo(() => {
     if (!selected) return null;
@@ -41,6 +50,8 @@ export default function AircraftDetailPanel() {
   }
 
   const title = aircraftTitle(record, language);
+  // Età della SINGOLA posizione (non della fotografia): da quando il provider l'ha rilevata.
+  const positionAgeS = positionAgeNowS(record, feedState, now);
   const alt = renderAltitude(record);
   const fmtKm = (m: number | null) => (m !== null ? `${(m / 1000).toFixed(1)} km` : '—');
   const velKmh = record.groundSpeedMs !== null ? record.groundSpeedMs * 3.6 : null;
@@ -143,6 +154,12 @@ export default function AircraftDetailPanel() {
           {positionTime !== null ? fmtTime(positionTime) : dash}
         </dd>
       </dl>
+
+      {positionAgeS !== null && (
+        <p className="text-[11px] text-space-300">
+          {t('aircraft.positionAge', { s: Math.round(positionAgeS) })} · {t('aircraft.replayNote')}
+        </p>
+      )}
 
       <div className="rounded-xl border border-cyan-glow/30 bg-cyan-glow/5 p-3 font-mono text-[11px] text-cyan-glow">
         {record.lat.toFixed(3)}°, {record.lon.toFixed(3)}°

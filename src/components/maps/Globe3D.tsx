@@ -28,6 +28,7 @@ import {
 } from './aircraftGlobeObject';
 import { useAircraftGlobeEntities, type AircraftGlobeEntity } from './useAircraftGlobeEntities';
 import { createNightShade, startNightShadeClock } from './nightShade';
+import { coverageRing, isWideGlobeView } from '@/lib/aircraftCoverage';
 
 /**
  * Vista 3D EarthRadar.
@@ -50,6 +51,9 @@ const GLOBE_RADIUS_KM = 6371;
 const SATELLITE_TICK_MS = 5000;
 /** Attesa a camera ferma prima di aggiornare il centro osservato (aerei, meteo). */
 const POV_DEBOUNCE_MS = 1000;
+/** Anello dell'area interrogata dagli aerei: appena sopra la superficie, poco visibile. */
+const COVERAGE_RING_ALTITUDE = 0.0015;
+const COVERAGE_RING_COLOR = 'rgba(92, 240, 255, 0.35)';
 
 interface PointEntity {
   kind: 'quake' | 'eonet-point' | 'firms';
@@ -91,7 +95,7 @@ interface PolygonEntity {
 export default function Globe3D() {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   usePerfFallback(true);
 
   // -------- Sizing al container reale --------
@@ -176,9 +180,11 @@ export default function Globe3D() {
   const mapCenter = useLayersStore((s) => s.mapCenter);
   const weather = useWeatherGrid(weatherEnabled, mapCenter[0], mapCenter[1], stepKm);
 
-  // Aerei: oggetti THREE con identità stabile + transizione grafica A → B reale.
+  // Aerei: oggetti THREE con identità stabile, posizioni del replay differito
+  // fra due osservazioni reali (mai oltre l'ultima).
   const aircraftEntities = useAircraftGlobeEntities(
     aircraftShown,
+    aircraftFeed.history,
     selectedAircraftId,
     reducedMotion,
   );
@@ -189,9 +195,12 @@ export default function Globe3D() {
   // Scala dei simboli aereo legata alla quota della camera (aggiornata solo
   // quando cambia di almeno il 15 %, per non ridisegnare a ogni frame).
   const [aircraftScale, setAircraftScale] = useState(() => aircraftSymbolScale(2.4));
+  // Vista ampia: il cerchio interrogato è molto più piccolo dell'area visibile.
+  const [wideView, setWideView] = useState(() => isWideGlobeView(2.4));
   const handlePovChange = useCallback((pov: { lat: number; lng: number; altitude: number }) => {
     const nextScale = aircraftSymbolScale(pov.altitude);
     setAircraftScale((cur) => (Math.abs(nextScale - cur) / cur > 0.15 ? nextScale : cur));
+    setWideView(isWideGlobeView(pov.altitude));
     if (povTimerRef.current !== null) window.clearTimeout(povTimerRef.current);
     povTimerRef.current = window.setTimeout(() => {
       povTimerRef.current = null;
@@ -347,7 +356,18 @@ export default function Globe3D() {
   ]);
 
   // ISS ground track ±45 min come pathsData (un'unica path).
-  const pathsData = useMemo(() => {
+  // Area interrogata dal traffico aereo: anello discreto (150 NM dal centro
+  // effettivo della richiesta, restituito dal gateway).
+  const coverageArea = aircraftEnabled ? aircraftFeed.snapshot?.area : undefined;
+  const coveragePath = useMemo(() => {
+    if (!coverageArea) return [];
+    const path = coverageRing(coverageArea.lat, coverageArea.lon, coverageArea.radiusNm).map(
+      ([lat, lon]) => [lat, lon, COVERAGE_RING_ALTITUDE] as [number, number, number],
+    );
+    return [{ path, color: COVERAGE_RING_COLOR, stroke: null }];
+  }, [coverageArea]);
+
+  const issPath = useMemo(() => {
     if (!issEnabled || !showIssTrack || !iss.satrec) return [];
     const now = Date.now();
     const start = now - 45 * 60_000;
@@ -358,8 +378,9 @@ export default function Globe3D() {
       if (!p) continue;
       path.push([p.lat, p.lon, p.alt / GLOBE_RADIUS_KM]);
     }
-    return path.length > 1 ? [{ path, color: '#5cf0ff' }] : [];
+    return path.length > 1 ? [{ path, color: '#5cf0ff', stroke: 1.4 }] : [];
   }, [issEnabled, showIssTrack, iss.satrec]);
+  const pathsData = useMemo(() => [...issPath, ...coveragePath], [issPath, coveragePath]);
 
   // Polygons: EONET (la notte è un guscio a parte, vedi effetto "Velo notturno").
   const polygonsData = useMemo<PolygonEntity[]>(() => {
@@ -502,8 +523,8 @@ export default function Globe3D() {
         pathPointLat={(p: unknown) => (p as [number, number, number])[0]}
         pathPointLng={(p: unknown) => (p as [number, number, number])[1]}
         pathPointAlt={(p: unknown) => (p as [number, number, number])[2]}
-        pathColor={() => '#5cf0ff'}
-        pathStroke={1.4}
+        pathColor={(d: object) => (d as { color: string }).color}
+        pathStroke={(d: object) => (d as { stroke: number | null }).stroke}
         // Polygons (notte + EONET)
         polygonsData={polygonsData}
         polygonGeoJsonGeometry={
@@ -529,6 +550,12 @@ export default function Globe3D() {
       <div className="pointer-events-none absolute bottom-2 left-2 z-[400] rounded-md border border-cyan-glow/30 bg-space-900/80 px-2 py-1 font-mono text-[10px] tracking-wide text-cyan-glow shadow-glow backdrop-blur-md">
         Blue Marble · Black Marble — NASA Visible Earth · {language}
       </div>
+      {coverageArea && wideView && (
+        <div className="pointer-events-none absolute left-1/2 top-2 z-[400] -translate-x-1/2 rounded-md border border-space-500/40 bg-space-900/75 px-2.5 py-1 text-center text-[11px] leading-snug text-space-200 backdrop-blur-md">
+          {t('aircraft.coverage')}
+          <span className="block text-[10px] text-space-300">{t('aircraft.zoomHint')}</span>
+        </div>
+      )}
     </div>
   );
 

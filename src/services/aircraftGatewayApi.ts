@@ -45,8 +45,10 @@ export interface GatewayAircraft {
   squawk: string | null;
   emergency: string | null;
   positionSource: string;
-  /** Secondi fra la posizione e `providerTime`. */
+  /** Età della posizione (s) rispetto a `providerTime` (readsb `seen_pos`). */
   positionAgeS: number | null;
+  /** Età dell'ultimo messaggio di qualunque tipo (s) rispetto a `providerTime` (readsb `seen`). */
+  lastSeenS: number | null;
   privacyRestricted: boolean;
 }
 
@@ -68,6 +70,11 @@ export type GatewayResult =
       /** Il gateway serve una fotografia oltre la freschezza (header X-EarthRadar-Cache: stale). */
       gatewayStale: boolean;
       retryAfterMs: number | null;
+      /**
+       * Età della fotografia al momento della risposta, dall'header `Age` del
+       * gateway (ms, risoluzione 1 s). Indipendente dall'orologio del client.
+       */
+      ageMs: number | null;
     }
   | { kind: 'error'; httpStatus: number | null; reason: string; retryAfterMs: number | null };
 
@@ -107,6 +114,7 @@ function parseAircraft(v: unknown): GatewayAircraft | null {
     emergency: str(v.emergency),
     positionSource: str(v.positionSource) ?? 'other',
     positionAgeS: num(v.positionAgeS),
+    lastSeenS: num(v.lastSeenS),
     privacyRestricted,
   };
 }
@@ -176,6 +184,9 @@ export async function fetchAircraftArea(
   try {
     res = await fetchFn(buildAircraftUrl(area.lat, area.lon, area.radiusNm), {
       headers: { Accept: 'application/json' },
+      // Sempre dal gateway (che ha la sua cache): una copia nella cache HTTP del
+      // browser riporterebbe un header Age non aggiornato (es. dopo un reload).
+      cache: 'no-cache',
       signal: opts.signal,
     });
   } catch {
@@ -192,7 +203,9 @@ export async function fetchAircraftArea(
     const snapshot = parseGatewaySnapshot(body);
     if (snapshot) {
       const gatewayStale = res.headers.get('X-EarthRadar-Cache') === 'stale';
-      return { kind: 'ok', snapshot, gatewayStale, retryAfterMs };
+      const ageRaw = res.headers.get('Age');
+      const ageMs = ageRaw !== null && /^\d+$/.test(ageRaw.trim()) ? Number(ageRaw) * 1000 : null;
+      return { kind: 'ok', snapshot, gatewayStale, retryAfterMs, ageMs };
     }
     return { kind: 'error', httpStatus: 200, reason: 'invalid_payload', retryAfterMs };
   }

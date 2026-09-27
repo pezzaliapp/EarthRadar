@@ -1,21 +1,27 @@
+import { replayDelayMs } from '@/lib/aircraftReplay';
 import type { AircraftView } from '@/store/aircraftStore';
 
 interface Props {
   view: AircraftView;
   language: 'it' | 'en';
+  /** Replay differito attivo (false con prefers-reduced-motion). */
+  replay?: boolean;
 }
 
 /**
  * Stato del traffico aereo:
  *   loading     → "FLYITALYADSB · …"
- *   live        → "FLYITALYADSB · LIVE"                 (verde)
- *   stale       → "FLYITALYADSB · dati di 45 s fa"      (giallo, mai LIVE)
+ *   live        → "FLYITALYADSB · LIVE · differita 35 s" (verde; il movimento
+ *                 sulla mappa è un replay differito di un intervallo)
+ *   delayed     → "FLYITALYADSB · ritardo 48 s" (giallo, mai LIVE)
  *   unavailable → "Traffico aereo temporaneamente non disponibile" (discreto)
+ * L'età indicata è quella della FOTOGRAFIA, non della singola posizione.
  * Il nome del provider arriva dal gateway; l'attribuzione è nel tooltip.
  */
-export default function AircraftStatusBadge({ view, language }: Props) {
+export default function AircraftStatusBadge({ view, language, replay = true }: Props) {
   const it = language === 'it';
   const name = (view.snapshot?.provider.name || 'FlyItalyADSB').toUpperCase();
+  const delayS = view.snapshot ? Math.round(replayDelayMs(view.snapshot.ttlS) / 1000) : null;
   let label: string;
   let cls: string;
   let pulse = false;
@@ -29,12 +35,18 @@ export default function AircraftStatusBadge({ view, language }: Props) {
       pulse = true;
       break;
     case 'live':
-      label = `${name} · LIVE`;
+      label =
+        `${name} · LIVE` +
+        (replay && delayS !== null
+          ? it
+            ? ` · differita ${delayS} s`
+            : ` · replay −${delayS} s`
+          : '');
       cls = 'border-risk-low/40 text-risk-low';
       break;
-    case 'stale': {
+    case 'delayed': {
       const s = Math.round((view.ageMs ?? 0) / 1000);
-      label = `${name} · ${it ? `dati di ${s} s fa` : `data ${s} s old`}`;
+      label = `${name} · ${it ? `ritardo ${s} s` : `${s} s behind`}`;
       cls = 'border-risk-mid/40 text-risk-mid';
       break;
     }

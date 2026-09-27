@@ -12,6 +12,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Traffico aereo reale tramite il gateway EarthRadar (`https://aircraft.alessandropezzali.it`,
 provider FlyItalyADSB, CC BY-SA 4.0). Il browser non conosce il provider né alcuna chiave.
 
+### Changed — replay differito, freschezza e area coperta
+
+- **Polling allineato alla cache del gateway**: la richiesta successiva parte subito dopo la
+  scadenza della fotografia (ricezione − `Age` + `ttlS` + 1,5 s) invece che a +30 s dalla
+  precedente. Prima un poll su due riceveva di nuovo la stessa fotografia (aggiornamento reale
+  ogni ~60 s). La fetch usa `cache: 'no-cache'`: l'età arriva sempre dal gateway, mai da una
+  copia nella cache HTTP del browser.
+- **Freschezza onesta**: LIVE solo se la fotografia ha ≤ ttl + 5 s (età misurata con l'header
+  `Age`, indipendente dall'orologio del client); oltre, "ritardo N s"; oltre 150 s nessun dato.
+  Nel dettaglio: "Posizione rilevata N s fa" (età della singola posizione, distinta da quella
+  della fotografia). Il frontend conserva anche `lastSeenS`.
+- **Replay differito** al posto della transizione A→B di 1,5 s: la mappa mostra un orologio
+  spostato indietro di ttl + 5 s (35 s); ogni aereo si muove in modo continuo sul cerchio
+  massimo fra due osservazioni reali consecutive e si ferma esattamente sull'ultima. Nessun uso
+  di velocità o rotta per le posizioni. Se il replay ha già superato A quando arriva B, riparte
+  da A (posizione reale) senza balzi. Badge "LIVE · differita 35 s".
+- **Reload**: la storia del replay è conservata solo in `sessionStorage` (≤ 150 s, stessa
+  area) e usata unicamente come passato di una fotografia reale compatibile.
+- **Area coperta**: anello discreto a 150 NM dal centro effettivo della richiesta (3D e 2D) e,
+  a zoom ampio, "Traffico aereo entro 150 NM dall'area osservata · Avvicinati per esplorare
+  un'altra area".
+
 ### Changed
 
 - **Aerei: un solo poller condiviso** (`services/aircraftPoller.ts` + `store/aircraftStore.ts`)

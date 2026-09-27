@@ -6,9 +6,13 @@ import {
 } from '@/services/aircraftGatewayApi';
 import {
   initialAircraftFeedState,
+  replayTimeMs,
+  snapshotAgeMs,
   useAircraftStore,
   type AircraftFeedState,
 } from '@/store/aircraftStore';
+import { ingestSnapshot, replayPosition, type ReplayHistory } from '@/lib/aircraftReplay';
+import { loadReplay, restorableFor, saveReplay } from '@/lib/aircraftReplayStorage';
 
 /**
  * Poller UNICO del traffico aereo (singleton per l'app).
@@ -19,13 +23,21 @@ import {
  * - Nessuna domanda attiva (layer spento) → nessuna richiesta, dati azzerati.
  * - Pagina nascosta → nessuna richiesta; al ritorno visibile si aggiorna
  *   subito solo se l'intervallo di 30 s è già scaduto.
- * - Poll ogni 30 s. Spostamento del centro oltre 20 NM → nuova richiesta,
- *   ma mai prima di 5 s dalla precedente.
+ * - Poll allineato alla cache del gateway: la richiesta successiva parte
+ *   subito DOPO la scadenza della fotografia ricevuta (ricezione − Age +
+ *   ttlS + 1,5 s), così non si riceve due volte la stessa fotografia.
+ * - Spostamento del centro oltre 20 NM → nuova richiesta, ma mai prima di
+ *   5 s dalla precedente.
+ * - Ogni fotografia reale alimenta la storia del replay differito, salvata
+ *   in sessionStorage per ricostruire il punto A dopo un reload.
  * - Errori e `Retry-After`: la richiesta successiva non parte prima di
  *   max(Retry-After, 30 s). Nessun retry immediato.
  */
 
+/** Intervallo di ripiego (errori, risposte senza metadati di cache). */
 export const AIRCRAFT_POLL_MS = 30_000;
+/** Attesa oltre la scadenza della fotografia sul gateway. */
+export const AIRCRAFT_ALIGN_MS = 1_500;
 export const AIRCRAFT_MIN_GAP_MS = 5_000;
 export const AIRCRAFT_RECENTER_NM = 20;
 /** Sempre il massimo consentito dal gateway: un'area = una richiesta. */
@@ -53,6 +65,9 @@ export interface AircraftPollerDeps {
   subscribeVisibility: (cb: () => void) => () => void;
   getState: () => AircraftFeedState;
   setState: (partial: Partial<AircraftFeedState>) => void;
+  /** Storia salvata dalla sessione precedente (reload), se c'è. */
+  loadReplay?: () => ReplayHistory | null;
+  saveReplay?: (history: ReplayHistory) => void;
 }
 
 const KM_PER_NM = 1.852;
@@ -67,6 +82,10 @@ export class AircraftPoller {
   private lastRequestAt: number | null = null;
   private lastCenter: AircraftCenter | null = null;
   private retryAfterUntil: number | null = null;
+  /** Scadenza della fotografia corrente + margine: prossima richiesta ordinaria. */
+  private nextDueAt: number | null = null;
+  /** Storia del reload in attesa di una fotografia reale compatibile. */
+  private pendingRestore: ReplayHistory | null | undefined = undefined;
   private wasEnabled = false;
   private readonly unsubscribe: () => void;
 
@@ -120,6 +139,7 @@ export class AircraftPoller {
     }
     if (!this.wasEnabled) {
       this.wasEnabled = true;
+      if (this.pendingRestore === undefined) this.pendingRestore = this.deps.loadReplay?.() ?? null;
       if (this.deps.getState().status === 'off') this.deps.setState({ status: 'loading' });
     }
     if (this.deps.isHidden() || this.inflight) return;
@@ -128,7 +148,11 @@ export class AircraftPoller {
     let due: number;
     if (this.lastRequestAt === null) due = now;
     else if (this.movedFar(center)) due = this.lastRequestAt + AIRCRAFT_MIN_GAP_MS;
-    else due = this.lastRequestAt + AIRCRAFT_POLL_MS;
+    else due = this.nextDueAt ?? this.lastRequestAt + AIRCRAFT_POLL_MS;
+    due = Math.max(
+      due,
+      this.lastRequestAt === null ? now : this.lastRequestAt + AIRCRAFT_MIN_GAP_MS,
+    );
     if (this.retryAfterUntil !== null) due = Math.max(due, this.retryAfterUntil);
 
     this.timer = this.deps.setTimer(
@@ -169,12 +193,28 @@ export class AircraftPoller {
 
     const now = this.deps.now();
     if (result.kind === 'ok') {
+      const { snapshot } = result;
+      const ageMs = result.ageMs ?? Math.max(0, now - snapshot.fetchedAt);
+      // Storia del replay: la storia salvata prima del reload vale solo come
+      // passato di una fotografia reale della stessa area (mai mostrata da sola).
+      let base = this.deps.getState().history;
+      if (!base && this.pendingRestore) base = restorableFor(this.pendingRestore, snapshot);
+      this.pendingRestore = null;
+      // Istante corrente del replay (con la fotografia precedente), per ripartire senza balzi.
+      const replayNow = replayTimeMs(this.deps.getState(), now);
+      const history = ingestSnapshot(base, snapshot, replayNow);
       this.deps.setState({
-        snapshot: result.snapshot,
+        snapshot,
         gatewayStale: result.gatewayStale,
         status: 'ok',
         error: null,
+        receivedAt: now,
+        ageAtReceiptMs: ageMs,
+        history,
       });
+      this.deps.saveReplay?.(history);
+      // Prossima richiesta subito dopo la scadenza della fotografia sul gateway.
+      this.nextDueAt = now - ageMs + snapshot.ttlS * 1000 + AIRCRAFT_ALIGN_MS;
       this.retryAfterUntil =
         result.gatewayStale && result.retryAfterMs !== null
           ? now + Math.max(result.retryAfterMs, AIRCRAFT_POLL_MS)
@@ -182,6 +222,7 @@ export class AircraftPoller {
     } else {
       // I dati precedenti restano: `aircraftView` li nasconde oltre l'età massima.
       this.deps.setState({ status: 'error', error: result.reason });
+      this.nextDueAt = null;
       this.retryAfterUntil = now + Math.max(result.retryAfterMs ?? 0, AIRCRAFT_POLL_MS);
     }
     this.schedule();
@@ -206,6 +247,35 @@ export function getAircraftPoller(): AircraftPoller {
     },
     getState: () => useAircraftStore.getState(),
     setState: (partial) => useAircraftStore.setState(partial),
+    loadReplay: () => loadReplay(Date.now()),
+    saveReplay: (history) => saveReplay(history, Date.now()),
   });
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    // Solo sviluppo (rimosso dal build): lettura delle posizioni disegnate, per i test visivi.
+    (window as unknown as Record<string, unknown>).__earthradarAircraftDebug = () => {
+      const state = useAircraftStore.getState();
+      const now = Date.now();
+      const t = replayTimeMs(state, now);
+      return {
+        requests: state.requests,
+        fetchedAt: state.snapshot?.fetchedAt ?? null,
+        area: state.snapshot?.area ?? null,
+        snapshotAgeMs: snapshotAgeMs(state, now),
+        replayTime: t,
+        aircraft: (state.snapshot?.aircraft ?? []).map((a) => {
+          const obs = state.history?.tracks.get(a.id) ?? [];
+          const p = t === null ? null : replayPosition(obs, t);
+          return {
+            id: a.id,
+            label: a.callsign,
+            real: [a.lat, a.lon],
+            shown: p && [p.lat, p.lon],
+            phase: p?.phase ?? null,
+            obs: obs.length,
+          };
+        }),
+      };
+    };
+  }
   return singleton;
 }

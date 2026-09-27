@@ -52,6 +52,14 @@ const LightningDetailPanel = lazy(() => import('@/components/panels/LightningDet
 // solo se l'utente passa in vista 3D. Mai eager.
 const Globe3D = lazy(() => import('@/components/maps/Globe3D'));
 
+/** Con prefers-reduced-motion la mappa mostra l'ultima posizione reale, senza replay. */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+  );
+}
+
 const INITIAL_CENTER: [number, number] = [44.698, 10.631]; // Reggio Emilia (omaggio)
 const INITIAL_ZOOM = 3;
 
@@ -258,7 +266,13 @@ export default function Home() {
                 fetchedAt={quakeFetchedAt}
                 language={language}
               />
-              {aircraftEnabled && <AircraftStatusBadge view={aircraftView} language={language} />}
+              {aircraftEnabled && (
+                <AircraftStatusBadge
+                  view={aircraftView}
+                  language={language}
+                  replay={!prefersReducedMotion()}
+                />
+              )}
             </div>
             <button
               type="button"

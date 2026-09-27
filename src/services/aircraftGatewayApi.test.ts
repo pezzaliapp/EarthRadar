@@ -56,8 +56,8 @@ const PLANE = {
   squawk: '3744',
   emergency: null,
   positionSource: 'adsb',
-  positionAgeS: 0,
-  lastSeenS: 0,
+  positionAgeS: 0.4,
+  lastSeenS: 0.2,
   privacyRestricted: false,
 };
 
@@ -79,6 +79,9 @@ describe('parseGatewaySnapshot — contratto v1 del gateway', () => {
       verticalRateMs: 12.35,
       onGround: false,
       privacyRestricted: false,
+      // Età della singola posizione e dell'ultimo messaggio, se il provider le fornisce.
+      positionAgeS: 0.4,
+      lastSeenS: 0.2,
     });
   });
 
@@ -162,6 +165,8 @@ describe('fetchAircraftArea', () => {
     expect(url.startsWith(`${AIRCRAFT_GATEWAY_URL}?`)).toBe(true);
     expect(url).toContain('r=150');
     expect(url).not.toMatch(/flyitalyadsb|opensky|api[-_]?key/i);
+    // Mai dalla cache HTTP del browser: l'età (Age) deve arrivare dal gateway.
+    expect((fetchFn.mock.calls[0] as unknown as [string, RequestInit])[1].cache).toBe('no-cache');
     expect(r.kind).toBe('ok');
   });
 
@@ -176,6 +181,22 @@ describe('fetchAircraftArea', () => {
       },
     );
     expect(r).toMatchObject({ kind: 'ok', gatewayStale: true, retryAfterMs: 30_000 });
+  });
+
+  it('header Age → età della fotografia misurata dal gateway', async () => {
+    const r = await fetchAircraftArea(
+      { lat: 45, lon: 9, radiusNm: 50 },
+      {
+        fetchFn: (async () =>
+          json(gatewayBody([PLANE]), { headers: { Age: '29' } })) as unknown as typeof fetch,
+      },
+    );
+    expect(r).toMatchObject({ kind: 'ok', ageMs: 29_000 });
+    const noAge = await fetchAircraftArea(
+      { lat: 45, lon: 9, radiusNm: 50 },
+      { fetchFn: (async () => json(gatewayBody([PLANE]))) as unknown as typeof fetch },
+    );
+    expect(noAge).toMatchObject({ kind: 'ok', ageMs: null });
   });
 
   it('errore del gateway → error con Retry-After e motivo', async () => {

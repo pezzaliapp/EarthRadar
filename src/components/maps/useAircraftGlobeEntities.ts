@@ -1,35 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  AIRCRAFT_TRANSITION_MS,
-  isTransitionDone,
-  positionAt,
-  renderAltitude,
-  renderHeadingDeg,
-  retarget,
-  type MotionTrack,
-} from '@/lib/aircraftMotion';
+import { renderAltitude, renderHeadingDeg } from '@/lib/aircraftMotion';
+import { replayPosition, type ReplayHistory } from '@/lib/aircraftReplay';
 import type { GatewayAircraft } from '@/services/aircraftGatewayApi';
+import { replayTimeMs, useAircraftStore } from '@/store/aircraftStore';
 import type { AircraftGlobeState } from './aircraftGlobeObject';
 
 export interface AircraftGlobeEntity extends AircraftGlobeState {
   id: string;
   aircraft: GatewayAircraft;
-  track: MotionTrack;
 }
 
-/** Aggiornamenti React durante una transizione (~20 fps, solo per ~1,5 s). */
-const FRAME_MS = 50;
+/** Aggiornamenti del replay sul globo (4 al secondo, solo se qualcosa si muove). */
+const FRAME_MS = 250;
 
 /**
- * Entità del globo per gli aerei, con identità stabile per `id` (così
- * three-globe riusa gli oggetti THREE invece di ricrearli).
- *
- * A ogni nuova fotografia reale: transizione grafica dalla posizione
- * mostrata ora alla nuova posizione reale B, poi fermo su B fino al dato
- * successivo. Nessuna posizione calcolata oltre B.
+ * Entità del globo per gli aerei, con identità stabile per `id` (three-globe
+ * riusa gli oggetti THREE). La posizione è quella del REPLAY DIFFERITO:
+ * interpolata fra due osservazioni reali consecutive, mai oltre l'ultima
+ * (vedi `aircraftReplay.ts`). Con prefers-reduced-motion: ultima posizione
+ * reale, ferma.
  */
 export function useAircraftGlobeEntities(
   aircraft: readonly GatewayAircraft[],
+  history: ReplayHistory | null,
   selectedId: string | null,
   reducedMotion: boolean,
 ): AircraftGlobeEntity[] {
@@ -39,58 +32,46 @@ export function useAircraftGlobeEntities(
   selectedRef.current = selectedId;
 
   useEffect(() => {
-    const now = performance.now();
     const next = new Map<string, AircraftGlobeEntity>();
     for (const a of aircraft) {
-      const alt = renderAltitude(a);
-      const prev = byId.current.get(a.id);
-      const track = retarget(
-        prev?.track,
-        { lat: a.lat, lon: a.lon, altM: alt.meters },
-        now,
-        reducedMotion ? 0 : AIRCRAFT_TRANSITION_MS,
-      );
-      const p = positionAt(track, now);
-      const e = prev ?? ({} as AircraftGlobeEntity);
+      const e = byId.current.get(a.id) ?? ({} as AircraftGlobeEntity);
       Object.assign(e, {
         id: a.id,
         aircraft: a,
-        track,
-        lat: p.lat,
-        lon: p.lon,
-        altM: p.altM,
-        altitudeKind: alt.kind,
+        lat: a.lat,
+        lon: a.lon,
+        altM: renderAltitude(a).meters,
+        altitudeKind: renderAltitude(a).kind,
         headingDeg: renderHeadingDeg(a),
         selected: a.id === selectedRef.current,
       });
       next.set(a.id, e);
     }
     byId.current = next;
-    setEntities([...next.values()]);
 
-    let raf = 0;
-    let lastPush = now;
-    const step = () => {
-      const t = performance.now();
-      let active = false;
+    let first = true;
+    const tick = () => {
+      const t = reducedMotion
+        ? Number.POSITIVE_INFINITY
+        : (replayTimeMs(useAircraftStore.getState(), Date.now()) ?? Number.POSITIVE_INFINITY);
+      let changed = false;
       for (const e of next.values()) {
-        const p = positionAt(e.track, t);
+        const obs = history?.tracks.get(e.id);
+        const p = obs ? replayPosition(obs, t) : null;
+        if (!p) continue;
+        if (e.lat !== p.lat || e.lon !== p.lon || e.altM !== p.altM) changed = true;
         e.lat = p.lat;
         e.lon = p.lon;
         e.altM = p.altM;
-        if (!isTransitionDone(e.track, t)) active = true;
       }
-      if (!active || t - lastPush >= FRAME_MS) {
-        lastPush = t;
-        setEntities([...next.values()]);
-      }
-      if (active) raf = requestAnimationFrame(step);
+      // Nessun re-render se nulla si è mosso (tutti fermi sull'ultima osservazione).
+      if (first || changed) setEntities([...next.values()]);
+      first = false;
     };
-    if ([...next.values()].some((e) => !isTransitionDone(e.track, now))) {
-      raf = requestAnimationFrame(step);
-    }
-    return () => cancelAnimationFrame(raf);
-  }, [aircraft, reducedMotion]);
+    tick();
+    const id = window.setInterval(tick, FRAME_MS);
+    return () => window.clearInterval(id);
+  }, [aircraft, history, reducedMotion]);
 
   useEffect(() => {
     for (const e of byId.current.values()) e.selected = e.id === selectedId;

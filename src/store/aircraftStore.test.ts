@@ -3,6 +3,10 @@ import {
   AIRCRAFT_MAX_DISPLAY_AGE_MS,
   aircraftView,
   initialAircraftFeedState,
+  positionAgeNowS,
+  replayTimeMs,
+  serverNowMs,
+  snapshotAgeMs,
   type AircraftFeedState,
 } from './aircraftStore';
 import type { GatewayAircraft, GatewaySnapshot } from '@/services/aircraftGatewayApi';
@@ -26,10 +30,12 @@ const plane: GatewayAircraft = {
   squawk: null,
   emergency: null,
   positionSource: 'adsb',
-  positionAgeS: 0,
+  positionAgeS: 2,
+  lastSeenS: 0.5,
   privacyRestricted: false,
 };
 
+/** Fotografia con fetchedAt = T0 ricevuta al tempo locale `receivedAt` con età `ageAtReceiptMs`. */
 function state(
   p: Partial<AircraftFeedState>,
   snap: Partial<GatewaySnapshot> | null = {},
@@ -37,6 +43,8 @@ function state(
   return {
     ...initialAircraftFeedState,
     status: 'ok',
+    receivedAt: T0,
+    ageAtReceiptMs: 0,
     snapshot:
       snap === null
         ? null
@@ -59,46 +67,59 @@ function state(
   };
 }
 
-describe('aircraftView — freschezza, stale ed errori', () => {
-  it('dati freschi → LIVE', () => {
-    expect(aircraftView(state({}), T0 + 20_000)).toMatchObject({
-      freshness: 'live',
-      ageMs: 20_000,
-    });
+describe('età della fotografia', () => {
+  it('= Age alla ricezione + tempo trascorso sul browser', () => {
+    expect(snapshotAgeMs(state({ ageAtReceiptMs: 12_000 }), T0 + 3_000)).toBe(15_000);
+  });
+
+  it('indipendente dall’orologio del client (anche se sfasato di minuti)', () => {
+    // Browser indietro di 5 minuti: receivedAt e now sul suo orologio.
+    const skewed = state({ receivedAt: T0 - 300_000, ageAtReceiptMs: 4_000 });
+    expect(snapshotAgeMs(skewed, T0 - 300_000 + 1_000)).toBe(5_000);
+    expect(serverNowMs(skewed, T0 - 300_000 + 1_000)).toBe(T0 + 5_000);
+  });
+
+  it('istante di replay = orologio del gateway − (ttl + 5 s)', () => {
+    expect(replayTimeMs(state({}), T0 + 10_000)).toBe(T0 + 10_000 - 35_000);
+  });
+});
+
+describe('aircraftView — LIVE / ritardo / non disponibile', () => {
+  it('fotografia ≤ ttl + 5 s → LIVE', () => {
+    expect(aircraftView(state({}), T0 + 35_000).freshness).toBe('live');
     expect(aircraftView(state({}), T0 + 20_000).aircraft).toHaveLength(1);
   });
 
-  it('fotografia stale autorizzata dal gateway → mostrata, ma mai LIVE', () => {
-    const v = aircraftView(state({ gatewayStale: true }), T0 + 5_000);
-    expect(v.freshness).toBe('stale');
+  it('oltre ttl + 5 s → "ritardo", mai LIVE', () => {
+    const v = aircraftView(state({}), T0 + 35_001);
+    expect(v.freshness).toBe('delayed');
+    expect(v.ageMs).toBe(35_001);
     expect(v.aircraft).toHaveLength(1);
   });
 
-  it('errore dopo dati validi recenti → dati mostrati come stale, non LIVE', () => {
-    const v = aircraftView(state({ status: 'error', error: 'upstream_429' }), T0 + 40_000);
-    expect(v.freshness).toBe('stale');
-    expect(v.aircraft).toHaveLength(1);
+  it('fotografia stale autorizzata dal gateway → ritardo, mai LIVE', () => {
+    expect(aircraftView(state({ gatewayStale: true }), T0 + 1_000).freshness).toBe('delayed');
   });
 
-  it('dati troppo vecchi → nessun aereo, "non disponibile" (nessun fallback)', () => {
+  it('errore dopo dati recenti → ritardo', () => {
+    expect(aircraftView(state({ status: 'error' }), T0 + 10_000).freshness).toBe('delayed');
+  });
+
+  it('oltre 150 s → nessun aereo, "non disponibile" (nessun fallback)', () => {
     const v = aircraftView(state({ status: 'error' }), T0 + AIRCRAFT_MAX_DISPLAY_AGE_MS + 1);
     expect(v.freshness).toBe('unavailable');
     expect(v.aircraft).toEqual([]);
   });
 
-  it('errore senza alcun dato → "non disponibile", lista vuota', () => {
-    const v = aircraftView(state({ status: 'error' }, null), T0);
-    expect(v).toMatchObject({ freshness: 'unavailable', aircraft: [] });
-  });
-
-  it('in caricamento → nessun aereo inventato', () => {
-    expect(aircraftView(state({ status: 'loading' }, null), T0)).toMatchObject({
-      freshness: 'loading',
+  it('errore senza alcun dato → "non disponibile"', () => {
+    expect(aircraftView(state({ status: 'error' }, null), T0)).toMatchObject({
+      freshness: 'unavailable',
       aircraft: [],
     });
   });
 
-  it('layer spento → off', () => {
+  it('in caricamento / layer spento', () => {
+    expect(aircraftView(state({ status: 'loading' }, null), T0).freshness).toBe('loading');
     expect(aircraftView({ ...initialAircraftFeedState }, T0).freshness).toBe('off');
   });
 
@@ -106,5 +127,16 @@ describe('aircraftView — freschezza, stale ed errori', () => {
     const a = aircraftView(state({ status: 'error' }, null), T0).aircraft;
     const b = aircraftView(state({ status: 'error' }, null), T0 + 1).aircraft;
     expect(a).toBe(b);
+  });
+});
+
+describe('età della SINGOLA posizione (distinta da quella della fotografia)', () => {
+  it('= età fotografia + (fetchedAt − providerTime) + seen_pos', () => {
+    // Fotografia di 10 s, posizione rilevata 2 s prima del tempo del provider.
+    expect(positionAgeNowS(plane, state({ ageAtReceiptMs: 10_000 }), T0)).toBeCloseTo(12, 6);
+  });
+
+  it('seen_pos assente → età sconosciuta', () => {
+    expect(positionAgeNowS({ ...plane, positionAgeS: null }, state({}), T0)).toBeNull();
   });
 });

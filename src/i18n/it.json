@@ -206,7 +206,11 @@
     "type": "Tipo",
     "restricted": "Aeromobile riservato",
     "restrictedHint": "Programma di privacy LADD/PIA: callsign, registrazione e codice ICAO non vengono mostrati.",
-    "openFr24": "Apri su Flightradar24"
+    "openFr24": "Apri su Flightradar24",
+    "coverage": "Traffico aereo entro 150 NM dall'area osservata",
+    "zoomHint": "Avvicinati per esplorare un'altra area",
+    "positionAge": "Posizione rilevata {{s}} s fa",
+    "replayNote": "sulla mappa in replay differito tra posizioni reali"
   },
   "eonet": {
     "title": "Eventi naturali EONET",
