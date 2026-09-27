@@ -83,6 +83,8 @@ export type GatewayReason =
   | 'upstream_http_5xx'
   | 'upstream_429'
   | 'upstream_invalid'
+  /** Chiave del provider non configurata nel Worker: nessuna chiamata effettuata. */
+  | 'provider_not_configured'
   /** Troppe richieste upstream in coda nel gateway: nessuna chiamata effettuata. */
   | 'gateway_busy';
 

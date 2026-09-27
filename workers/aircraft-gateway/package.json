@@ -1,9 +1,9 @@
 {
   "name": "earthradar-aircraft-gateway",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
-  "description": "EarthRadar — gateway Cloudflare Worker per il traffico aereo ADS-B (ADSB.lol, ODbL): CORS, validazione, normalizzazione, cache best-effort.",
+  "description": "EarthRadar — gateway Cloudflare Worker per il traffico aereo ADS-B (FlyItalyADSB, CC BY-SA 4.0): CORS, validazione, normalizzazione, cache best-effort.",
   "license": "MIT",
   "engines": {
     "node": ">=22"

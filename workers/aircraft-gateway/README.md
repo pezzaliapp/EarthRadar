@@ -1,20 +1,26 @@
 # EarthRadar — aircraft gateway
 
 Cloudflare Worker (piano **Free**, nessun binding a pagamento) che fa da gateway tra la PWA
-EarthRadar e il provider ADS-B **ADSB.lol**.
+EarthRadar e il provider ADS-B **FlyItalyADSB** (REST API v2).
 
 ```
 EarthRadar PWA ──► https://aircraft.alessandropezzali.it (Worker su Custom Domain)
                      │  CORS · validazione · quantizzazione
                      ├─ L1 memoria isolate + coalescing
                      ├─ L2 Cache API del data center (fotografie, lock, breaker condivisi)
-                     └─ throttle · breaker ──► api.adsb.lol /v2/point  (≤ 1 chiamata / 30 s per area)
+                     └─ throttle · breaker ──► api.flyitalyadsb.com/v2/lat/…/lon/…/dist/{km}  (≤ 1 chiamata / 30 s per area)
 ```
 
-Perché serve: ADSB.lol non invia header CORS, quindi il browser non può chiamarlo
-direttamente. Il Worker non contiene secret (ADSB.lol oggi non richiede chiavi).
+Perché serve: FlyItalyADSB richiede una API key, che non deve mai arrivare al browser. La chiave
+è il secret Cloudflare **`FLYITALYADSB_API_KEY`** (`npx wrangler secret put FLYITALYADSB_API_KEY`):
+viene usata solo nell'header `X-Api-Key` della chiamata upstream e non compare mai nel codice,
+in `wrangler.toml`, nei log o nelle risposte. Senza chiave il gateway risponde 503
+`provider_not_configured` senza chiamare il provider.
 
-**ADSB.lol è una risorsa gratuita da proteggere**: il gateway è progettato per minimizzare le
+Storia: il primo provider era ADSB.lol, che dagli IP di uscita di Cloudflare rispondeva 429 già
+alla prima chiamata (mentre dal client locale rispondeva 200): sostituito con FlyItalyADSB.
+
+**Il provider è una risorsa gratuita da proteggere**: il gateway è progettato per minimizzare le
 chiamate upstream, anche a costo di dati un po' meno recenti.
 
 ## Endpoint
@@ -30,8 +36,8 @@ Parametri di `/v1/aircraft` (validazione rigorosa, altrimenti **400 `invalid_par
 - `lat`: decimale in [-90, 90], max 8 decimali, niente notazione esponenziale;
 - `lon`: decimale in [-180, 180];
 - `r`: **intero** in [1, 150]. **150 NM è il massimo assoluto** di EarthRadar: `r` > 150 → 400
-  (mai ridotto in silenzio). ADSB.lol documenta 250 NM ma non lo impone, e un raggio decimale
-  produce una risposta non JSON: il gateway rifiuta entrambi i casi.
+  (mai ridotto in silenzio). Il contratto pubblico resta in NM; verso FlyItalyADSB il raggio è
+  convertito in km (`km = NM × 1,852`, arrotondato per eccesso: 50 NM → 93 km, 150 NM → 278 km).
 
 Ogni parametro deve comparire una sola volta.
 
@@ -53,10 +59,10 @@ all'equatore, ≈ 18 NM a 45° (≤ 14% del raggio). La risposta riporta l'`area
 - **Stale 120 s** oltre la freschezza: la fotografia precedente è servita (marcata `stale`) solo se
   l'upstream è in errore/pausa o se un altro isolate sta già aggiornando l'area.
 - **Chiavi sintetiche** costruite solo dall'area quantizzata, es.
-  `https://aircraft.alessandropezzali.it/__cache/v2/adsb.lol/aircraft/45/7.5/150`: nessun
+  `https://aircraft.alessandropezzali.it/__cache/v2/flyitalyadsb/aircraft/45/7.5/150`: nessun
   parametro del client, nessun `Origin`, nessun `Vary`. Gli header CORS si aggiungono per richiesta.
 - **Lock di aggiornamento** (8 s) nella Cache API: scaduta la freschezza, un solo isolate per data
-  center chiama ADSB.lol; gli altri servono la fotografia precedente. A freddo (nessuna
+  center chiama il provider; gli altri servono la fotografia precedente. A freddo (nessuna
   fotografia) attendono fino a 3 s la fotografia dell'altro isolate, poi 503 `gateway_busy` —
   mai una chiamata upstream in parallelo.
 - **Breaker condiviso**: dopo un errore upstream il marcatore nella Cache API ferma tutti gli
@@ -85,14 +91,14 @@ Header per richiesta (il corpo è condiviso, quindi non li contiene):
   "reason": null, // upstream_timeout | upstream_network | upstream_http_4xx |
   // upstream_http_5xx | upstream_429 | upstream_invalid | gateway_busy
   "provider": {
-    "id": "adsb.lol",
-    "name": "ADSB.lol",
-    "url": "https://www.adsb.lol/",
-    "attribution": "Aircraft data © ADSB.lol contributors, Open Database License (ODbL) 1.0",
+    "id": "flyitalyadsb",
+    "name": "FlyItalyADSB",
+    "url": "https://flyitalyadsb.com/",
+    "attribution": "Aircraft data: FlyItalyADSB (flyitalyadsb.com) · ADS-B/MLAT data · CC BY-SA 4.0",
     "license": {
-      "id": "ODbL-1.0",
+      "id": "CC-BY-SA-4.0",
       "name": "…",
-      "url": "https://opendatacommons.org/licenses/odbl/1-0/",
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/",
     },
   },
   "area": { "lat": 44.7, "lon": 10.6, "radiusNm": 50 },
@@ -133,9 +139,9 @@ Header per richiesta (il corpo è condiviso, quindi non li contiene):
 Le risposte di errore hanno la stessa forma, con `aircraft: []`, `count: 0` e header
 `Retry-After`. **Il gateway non restituisce mai dati inventati o di riempimento.**
 
-## Normalizzazione (ADSB.lol → AircraftDTO)
+## Normalizzazione (formato readsb di FlyItalyADSB → AircraftDTO)
 
-| ADSB.lol                                | DTO                       | Regola                                                                |
+| readsb                                  | DTO                       | Regola                                                                |
 | --------------------------------------- | ------------------------- | --------------------------------------------------------------------- |
 | `hex`                                   | `id`, `icao24`            | minuscolo, `~` conservato (indirizzo non ICAO); non valido → scartato |
 | `lat`, `lon`                            | `lat`, `lon`              | obbligatori e nel range, altrimenti scartato; 5 decimali (~1 m)       |
@@ -169,7 +175,7 @@ isolate diversi. Restano visibili tipo, categoria, posizione e cinematica.
 - **Cache a due livelli** con lock e breaker condivisi (vedi sopra).
 - **Coalescing**: richieste concorrenti per la stessa area → una sola chiamata upstream; il fetch
   è protetto da `ctx.waitUntil`.
-- **Throttle upstream**: almeno 1,1 s tra due chiamate a ADSB.lol dallo stesso isolate, max 4 in
+- **Throttle upstream**: almeno 1,1 s tra due chiamate al provider dallo stesso isolate, max 4 in
   attesa; oltre → 503 `gateway_busy` (nessuna chiamata effettuata).
 - **Timeout upstream** 6 s → 504 `upstream_timeout`.
 - **Circuit breaker** dopo un errore: 429 → pausa `Retry-After` limitata a [10 s, 300 s]
@@ -179,9 +185,11 @@ isolate diversi. Restano visibili tipo, categoria, posizione e cinematica.
 
 ## Licenza dei dati
 
-I dati ADSB.lol sono distribuiti sotto **ODbL 1.0**. Il JSON normalizzato è un database derivato
-e resta sotto ODbL: ogni risposta include `provider.attribution` e `provider.license`, che il
-frontend deve mostrare. Il codice del Worker è MIT come il resto del repository.
+I dati FlyItalyADSB sono distribuiti sotto **CC BY-SA 4.0** (attribuzione obbligatoria, opere
+derivate con la stessa licenza). Uso commerciale consentito entro il limite standard di
+100 richieste/min per IP. Citazione indicata dal provider:
+"FlyItalyADSB (flyitalyadsb.com) · ADS-B/MLAT data · License CC BY-SA 4.0". Ogni risposta
+include `provider.attribution` e `provider.license`, che il frontend deve mostrare. Il codice del Worker è MIT come il resto del repository.
 
 ## Sviluppo
 
@@ -192,11 +200,11 @@ npm test          # vitest
 npm run typecheck # tsc --noEmit
 npm run dev       # wrangler dev locale (http://127.0.0.1:8787), nessun login richiesto
 npm run build:dry # bundle senza deploy
-npm run measure   # misure reali su api.adsb.lol (6 richieste, distanziate)
+FLYITALYADSB_API_KEY=… npm run measure   # misure reali (6 richieste, distanziate)
 ```
 
 `wrangler dev` usa la Cache API locale di workerd (persistita in `.wrangler/state`): per provare
-la cache senza consumare quota ADSB.lol puntare `UPSTREAM_BASE_URL` a un server finto
+la cache senza consumare quota del provider puntare `UPSTREAM_BASE_URL` a un server finto
 (`--var UPSTREAM_BASE_URL:http://127.0.0.1:8799`).
 
 Il deploy (`npm run deploy`) richiede `wrangler login` sull'account Cloudflare del progetto e
@@ -216,11 +224,11 @@ controllano il lock nello stesso istante (finestra di pochi ms fra `match` e `pu
   richiesta, anche se servita dalla cache. Con poll a 30 s un utente continuo ≈ 2.880/giorno,
   quindi ≈ 35 utenti continui esauriscono la quota giornaliera. Il frontend deve fare poll ogni
   30 s, fermarsi con la scheda nascosta e rispettare `Retry-After`.
-- ADSB.lol limita a circa 1 richiesta/s per IP e risponde 429 senza `Retry-After`. Gli isolate
-  Cloudflare condividono IP di uscita: con molti utenti in aree diverse sono possibili 429,
-  gestiti dal breaker e segnalati al client.
-- Termini ADSB.lol: uso gratuito oggi; in futuro potrebbe servire una API key ottenuta
-  contribuendo con un ricevitore, e per uso in produzione chiedono di essere contattati.
+- FlyItalyADSB limita a 100 richieste/min per IP. Gli isolate Cloudflare condividono IP di
+  uscita: eventuali 429 sono gestiti dal breaker e segnalati al client.
+- Il formato della risposta FlyItalyADSB non è documentato pubblicamente: il gateway si aspetta il
+  formato readsb (`ac[]`, `now` in ms). Un formato diverso produce 502 `upstream_invalid`, mai
+  dati inventati. L'oscuramento LADD/PIA dipende dal campo readsb `dbFlags`.
 - CPU del piano Free (10 ms per richiesta): su un _miss_ in un'area densa parse +
   normalizzazione + serializzazione costano ~5–9 ms a regime misurati a 250 NM (a 150 NM l'area è
   ~36%). Hit ed edge non riserializzano: il corpo è servito così com'è.

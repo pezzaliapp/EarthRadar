@@ -2,14 +2,15 @@
  * Misure locali (Node ≥ 22, V8 come workerd): dimensione del payload upstream,
  * dimensione del JSON normalizzato, tempo di JSON.parse + normalizzazione.
  *
- *   npm run measure
+ *   FLYITALYADSB_API_KEY=… npm run measure
  *
- * Esegue UNA richiesta reale per area verso api.adsb.lol (uso leggero,
+ * Esegue UNA richiesta reale per area verso FlyItalyADSB (uso leggero,
  * intervallate di 1,5 s) e ripete il parsing in memoria per avere mediane stabili.
+ * La chiave si legge solo dall'ambiente e non viene mai stampata.
  */
-import { normalizeAdsbLolResponse } from '../src/normalize.ts';
-import { buildPointUrl } from '../src/providers/adsbLol.ts';
-import { USER_AGENT } from '../src/config.ts';
+import { normalizeReadsbResponse } from '../src/normalize.ts';
+import { buildAreaUrl } from '../src/providers/flyItalyAdsb.ts';
+import { DEFAULT_UPSTREAM_BASE_URL, USER_AGENT } from '../src/config.ts';
 import type { Area } from '../src/types.ts';
 
 const AREAS: Array<{ name: string; area: Area }> = [
@@ -36,12 +37,18 @@ function kb(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
+const apiKey = process.env.FLYITALYADSB_API_KEY;
+if (!apiKey) {
+  console.error('Imposta FLYITALYADSB_API_KEY nell’ambiente.');
+  process.exit(1);
+}
+
 const rows: string[] = [];
 for (const { name, area } of AREAS) {
-  const url = buildPointUrl('https://api.adsb.lol', area);
+  const url = buildAreaUrl(DEFAULT_UPSTREAM_BASE_URL, area);
   const t0 = performance.now();
   const res = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+    headers: { Accept: 'application/json', 'User-Agent': USER_AGENT, 'X-Api-Key': apiKey },
   });
   const text = await res.text();
   const netMs = performance.now() - t0;
@@ -60,7 +67,7 @@ for (const { name, area } of AREAS) {
     const a = performance.now();
     const json = JSON.parse(text) as unknown;
     const b = performance.now();
-    const n = normalizeAdsbLolResponse(json);
+    const n = normalizeReadsbResponse(json);
     const c = performance.now();
     out = JSON.stringify({ v: 1, aircraft: n.aircraft });
     const d = performance.now();

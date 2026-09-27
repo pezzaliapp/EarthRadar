@@ -3,15 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseAllowedOrigins } from '../src/cors.ts';
 import type { EdgeCacheStore } from '../src/edgeCache.ts';
 import { createGateway } from '../src/handler.ts';
-import { ADSB_LOL_INFO, createAdsbLolProvider } from '../src/providers/adsbLol.ts';
+import { createFlyItalyAdsbProvider, FLY_ITALY_ADSB_INFO } from '../src/providers/flyItalyAdsb.ts';
 import { UpstreamThrottle } from '../src/throttle.ts';
 import worker from '../src/index.ts';
 import type { AircraftResponse } from '../src/types.ts';
 import { FakeEdgeStore } from './fakeEdgeStore.ts';
-import fixture from './fixtures/adsblol-point.json';
+import fixture from './fixtures/readsb-point.json';
 
 const ORIGIN = 'https://www.alessandropezzali.it';
 const Q = '/v1/aircraft?lat=45.07&lon=7.69&r=140';
+/** Chiave FINTA, solo per i test. */
+const FAKE_KEY = 'test-fake-key-not-a-real-secret';
 
 interface Clock {
   now: number;
@@ -27,6 +29,7 @@ interface SetupOptions {
   clock?: Clock;
   store?: EdgeCacheStore | null;
   fetchImpl?: (url: string) => Promise<Response>;
+  apiKey?: string | null;
 }
 
 function okResponse() {
@@ -41,7 +44,11 @@ function setup(opts: SetupOptions = {}) {
   const now = () => clock.now;
   const fetchFn = vi.fn(opts.fetchImpl ?? (async () => okResponse()));
   const gateway = createGateway({
-    provider: createAdsbLolProvider({ fetchFn: fetchFn as unknown as typeof fetch, now }),
+    provider: createFlyItalyAdsbProvider({
+      apiKey: opts.apiKey === undefined ? FAKE_KEY : (opts.apiKey ?? undefined),
+      fetchFn: fetchFn as unknown as typeof fetch,
+      now,
+    }),
     allowedOrigins: parseAllowedOrigins(`${ORIGIN},http://localhost:5173`),
     edgeStore: opts.store ?? null,
     now,
@@ -91,7 +98,7 @@ async function body(res: Response) {
 const cacheOf = (res: Response) => res.headers.get('X-EarthRadar-Cache');
 
 describe('GET /v1/aircraft', () => {
-  it('200 con formato normalizzato, attribuzione ODbL e CORS', async () => {
+  it('200 con formato normalizzato, attribuzione CC BY-SA e CORS', async () => {
     const t = setup();
     const res = await t.call(Q);
     expect(res.status).toBe(200);
@@ -116,12 +123,12 @@ describe('GET /v1/aircraft', () => {
     expect(b).not.toHaveProperty('requested');
     expect(b).not.toHaveProperty('servedAt');
     expect(b).not.toHaveProperty('cache');
-    expect(b.provider).toEqual(ADSB_LOL_INFO);
-    expect(b.provider.license.id).toBe('ODbL-1.0');
-    expect(b.provider.attribution).toMatch(/ADSB\.lol contributors/);
+    expect(b.provider).toEqual(FLY_ITALY_ADSB_INFO);
+    expect(b.provider.license.id).toBe('CC-BY-SA-4.0');
+    expect(b.provider.attribution).toMatch(/FlyItalyADSB/);
     expect(b.aircraft).toHaveLength(6);
     expect(t.fetchFn).toHaveBeenCalledWith(
-      'https://api.adsb.lol/v2/point/45/7.5/150',
+      'https://api.flyitalyadsb.com/v2/lat/45/lon/7.5/dist/278',
       expect.anything(),
     );
   });
@@ -285,7 +292,7 @@ describe('429 e circuit breaker', () => {
       count: 0,
       retryAfterS: 45,
     });
-    expect(b.provider.attribution).toMatch(/ODbL/);
+    expect(b.provider.attribution).toMatch(/CC BY-SA 4\.0/);
 
     // Anche un'altra area: il breaker vale per tutto il provider.
     const again = await t.call('/v1/aircraft?lat=10&lon=10&r=25');
@@ -309,7 +316,7 @@ describe('Cache API condivisa (stesso data center, isolate diversi)', () => {
     const ra = await a.call(Q);
     await a.flush();
     expect(store.keys()).toContain(
-      'https://aircraft.alessandropezzali.it/__cache/v2/adsb.lol/aircraft/45/7.5/150',
+      'https://aircraft.alessandropezzali.it/__cache/v2/flyitalyadsb/aircraft/45/7.5/150',
     );
 
     a.advance(10_000);
@@ -458,6 +465,50 @@ describe('Cache API condivisa (stesso data center, isolate diversi)', () => {
   });
 });
 
+describe('chiave FlyItalyADSB', () => {
+  const leaks = async (res: Response) => {
+    const headers: string[] = [];
+    res.headers.forEach((v, k) => headers.push(`${k}: ${v}`));
+    return (headers.join('\n') + (await res.text())).includes(FAKE_KEY);
+  };
+
+  it('mai nelle risposte (ok, errore, health) né nei log', async () => {
+    const logs = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warns = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const ok = setup();
+    expect(await leaks(await ok.call(Q))).toBe(false);
+    expect(await leaks(await ok.call('/v1/health'))).toBe(false);
+
+    const denied = setup({
+      fetchImpl: async () => new Response('{"error":"invalid key"}', { status: 401 }),
+    });
+    const r401 = await denied.call(Q);
+    expect(r401.status).toBe(502);
+    expect(await leaks(r401.clone())).toBe(false);
+    expect(await body(r401)).toMatchObject({ reason: 'upstream_http_4xx', aircraft: [] });
+    const health = (await (await denied.call('/v1/health')).json()) as Record<string, unknown>;
+    expect(health).toMatchObject({ lastUpstream: { ok: false, httpStatus: 401 } });
+    expect(JSON.stringify(health)).not.toContain(FAKE_KEY);
+
+    const allLogs = JSON.stringify([...logs.mock.calls, ...warns.mock.calls]);
+    expect(allLogs).not.toContain(FAKE_KEY);
+    logs.mockRestore();
+    warns.mockRestore();
+  });
+
+  it('chiave assente → 503 provider_not_configured, nessuna chiamata upstream', async () => {
+    const t = setup({ apiKey: null });
+    const res = await t.call(Q);
+    expect(res.status).toBe(503);
+    expect(await body(res)).toMatchObject({
+      status: 'unavailable',
+      reason: 'provider_not_configured',
+      aircraft: [],
+    });
+    expect(t.fetchFn).not.toHaveBeenCalled();
+  });
+});
+
 describe('CORS e metodi', () => {
   it('origine non consentita → 403 senza chiamare l’upstream', async () => {
     const t = setup();
@@ -516,7 +567,7 @@ describe('GET /v1/health', () => {
       v: 1,
       ok: true,
       service: 'earthradar-aircraft-gateway',
-      version: '0.2.0',
+      version: '0.3.0',
       scope: 'isolate',
       breaker: { open: false },
       lastUpstream: null,
@@ -541,7 +592,7 @@ describe('entry point Worker', () => {
   it('usa le variabili d’ambiente per allowlist', async () => {
     const res = await worker.fetch(
       new Request('https://gw.example/v1/health', { headers: { Origin: 'https://nope.example' } }),
-      { ALLOWED_ORIGINS: ORIGIN, UPSTREAM_BASE_URL: 'https://api.adsb.lol' },
+      { ALLOWED_ORIGINS: ORIGIN, UPSTREAM_BASE_URL: 'https://api.flyitalyadsb.com/v2' },
       { waitUntil: () => undefined },
     );
     expect(res.status).toBe(403);

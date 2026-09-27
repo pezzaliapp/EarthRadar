@@ -1,26 +1,29 @@
 export const SERVICE_NAME = 'earthradar-aircraft-gateway';
-export const SERVICE_VERSION = '0.2.0';
+export const SERVICE_VERSION = '0.3.0';
 
 /**
  * Raggio massimo ASSOLUTO accettato dal gateway (decisione di progetto).
- * ADSB.lol documenta 250 NM, ma EarthRadar non va mai oltre 150: richieste
- * con `r` > 150 sono rifiutate con 400, non ridotte in silenzio.
+ * EarthRadar non va mai oltre 150 NM: richieste con `r` > 150 sono
+ * rifiutate con 400, non ridotte in silenzio.
  */
 export const MAX_RADIUS_NM = 150;
+
+/** Il contratto pubblico è in NM; FlyItalyADSB vuole il raggio in km. */
+export const NM_TO_KM = 1.852;
 
 /** Gradini di raggio: il client può chiedere qualunque intero 1..150, noi arrotondiamo per eccesso. */
 export const RADIUS_BUCKETS_NM = [25, 50, 100, 150] as const;
 
 export const UPSTREAM_TIMEOUT_MS = 6_000;
-export const DEFAULT_UPSTREAM_BASE_URL = 'https://api.adsb.lol';
+export const DEFAULT_UPSTREAM_BASE_URL = 'https://api.flyitalyadsb.com/v2';
 export const USER_AGENT = `EarthRadar-aircraft-gateway/${SERVICE_VERSION} (+https://www.alessandropezzali.it/EarthRadar/)`;
 
 /**
  * Freschezza di una fotografia di un'area: entro questo intervallo nessuna
  * nuova chiamata upstream per la stessa area (per data center Cloudflare).
- * 30 s: ADSB.lol risponde 429 già alla 2ª richiesta ravvicinata dallo stesso
- * IP, e le uscite Cloudflare sono IP condivisi. Meglio dati un po' meno
- * recenti che saturare un servizio gratuito.
+ * 30 s: il provider è un servizio gratuito (FlyItalyADSB: 100 richieste/min
+ * per IP, e le uscite Cloudflare sono IP condivisi). Meglio dati un po' meno
+ * recenti che saturarlo.
  */
 export const CACHE_FRESH_TTL_S = 30;
 
@@ -61,9 +64,9 @@ export const ANON_ID_ROTATE_MS = 60 * 60 * 1000;
 export const ANON_ID_MAX_ENTRIES = 5_000;
 
 /**
- * ADSB.lol limita a circa 1 richiesta/s per IP (429 misurati già alla 2ª
- * richiesta ravvicinata, senza Retry-After). Distanziamo le chiamate upstream
- * di ogni isolate; oltre `UPSTREAM_MAX_QUEUE` attese rispondiamo "busy".
+ * Distanziamo le chiamate upstream di ogni isolate (≤ ~55/min, sotto il
+ * limite FlyItalyADSB di 100/min per IP); oltre `UPSTREAM_MAX_QUEUE` attese
+ * rispondiamo "busy".
  */
 export const UPSTREAM_MIN_INTERVAL_MS = 1_100;
 export const UPSTREAM_MAX_QUEUE = 4;

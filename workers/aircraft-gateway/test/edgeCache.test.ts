@@ -10,7 +10,7 @@ function setup() {
     store,
     keyOrigin: 'https://aircraft.alessandropezzali.it/',
     keyPrefix: '/__cache/v2/',
-    providerId: 'adsb.lol',
+    providerId: 'flyitalyadsb',
     retainS: 150,
     now: () => now,
   });
@@ -21,13 +21,13 @@ describe('EdgeCache', () => {
   it('chiavi sintetiche costruite solo dall’area quantizzata', () => {
     const { edge } = setup();
     expect(edge.snapshotKey('45,7.5,150')).toBe(
-      'https://aircraft.alessandropezzali.it/__cache/v2/adsb.lol/aircraft/45/7.5/150',
+      'https://aircraft.alessandropezzali.it/__cache/v2/flyitalyadsb/aircraft/45/7.5/150',
     );
     expect(edge.lockKey('-33.5,-70.25,25')).toBe(
-      'https://aircraft.alessandropezzali.it/__cache/v2/adsb.lol/aircraft/-33.5/-70.25/25/lock',
+      'https://aircraft.alessandropezzali.it/__cache/v2/flyitalyadsb/aircraft/-33.5/-70.25/25/lock',
     );
     expect(edge.breakerKey()).toBe(
-      'https://aircraft.alessandropezzali.it/__cache/v2/adsb.lol/breaker',
+      'https://aircraft.alessandropezzali.it/__cache/v2/flyitalyadsb/breaker',
     );
   });
 

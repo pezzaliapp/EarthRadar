@@ -3,7 +3,7 @@ import type { UpstreamError } from './providers/types.ts';
 import type { GatewayReason, GatewayStatus } from './types.ts';
 
 /**
- * Circuit breaker: dopo un errore upstream smettiamo di chiamare ADSB.lol
+ * Circuit breaker: dopo un errore upstream smettiamo di chiamare il provider
  * per un intervallo, rispondendo con l'ultima fotografia (stale) o con lo
  * stato noto. Lo stato è locale all'isolate e propagato agli altri isolate
  * del data center tramite la Cache API (vedi edgeCache.ts → `adopt`).
@@ -61,6 +61,13 @@ export function classifyUpstreamError(err: UpstreamError): UpstreamFailure {
         status: 'unavailable',
         reason: 'upstream_invalid',
         pauseMs: BREAKER_MS.transient,
+      };
+    case 'not_configured':
+      return {
+        httpStatus: 503,
+        status: 'unavailable',
+        reason: 'provider_not_configured',
+        pauseMs: BREAKER_MS.http4xx,
       };
   }
 }

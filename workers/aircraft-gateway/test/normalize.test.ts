@@ -5,10 +5,10 @@ import {
   InvalidPayloadError,
   isPrivacyRestricted,
   mapPositionSource,
-  normalizeAdsbLolAircraft,
-  normalizeAdsbLolResponse,
+  normalizeReadsbAircraft,
+  normalizeReadsbResponse,
 } from '../src/normalize.ts';
-import fixture from './fixtures/adsblol-point.json';
+import fixture from './fixtures/readsb-point.json';
 
 function byHex<T extends { icao24: string | null }>(list: T[], hex: string) {
   return list.find((a) => a.icao24 === hex);
@@ -22,8 +22,8 @@ function restrictedAt<T extends { privacyRestricted: boolean; lat: number }>(
   return list.find((a) => a.privacyRestricted && a.lat === lat);
 }
 
-describe('normalizeAdsbLolResponse', () => {
-  const result = normalizeAdsbLolResponse(fixture);
+describe('normalizeReadsbResponse', () => {
+  const result = normalizeReadsbResponse(fixture);
 
   it('mantiene solo aerei validi, con posizione recente e senza duplicati', () => {
     // Ordinati per id (codici ASCII: cifre < "anon-…" < "~"), non per ordine upstream.
@@ -136,26 +136,26 @@ describe('normalizeAdsbLolResponse', () => {
   });
 
   it('rifiuta payload strutturalmente non validi', () => {
-    expect(() => normalizeAdsbLolResponse(null)).toThrow(InvalidPayloadError);
-    expect(() => normalizeAdsbLolResponse([])).toThrow(InvalidPayloadError);
-    expect(() => normalizeAdsbLolResponse({ msg: 'x' })).toThrow(InvalidPayloadError);
+    expect(() => normalizeReadsbResponse(null)).toThrow(InvalidPayloadError);
+    expect(() => normalizeReadsbResponse([])).toThrow(InvalidPayloadError);
+    expect(() => normalizeReadsbResponse({ msg: 'x' })).toThrow(InvalidPayloadError);
   });
 
   it('accetta una lista vuota (area senza traffico)', () => {
-    const r = normalizeAdsbLolResponse({ ac: [], now: 1 });
+    const r = normalizeReadsbResponse({ ac: [], now: 1 });
     expect(r.aircraft).toEqual([]);
     expect(r.stats.upstreamTotal).toBe(0);
   });
 
   it('rispetta la soglia di età configurabile', () => {
-    const r = normalizeAdsbLolResponse(fixture, { maxPositionAgeS: 5 });
+    const r = normalizeReadsbResponse(fixture, { maxPositionAgeS: 5 });
     // 39df19 ha seen_pos 6.4 s → scartato; 4d2222 ha esattamente 5 s → incluso.
     expect(r.aircraft.map((a) => a.icao24)).not.toContain('39df19');
     expect(r.aircraft.map((a) => a.icao24)).toContain('4d2222');
   });
 });
 
-describe('normalizeAdsbLolAircraft — casi limite', () => {
+describe('normalizeReadsbAircraft — casi limite', () => {
   const base = { hex: 'abcdef', lat: 10, lon: 20, seen_pos: 1 };
 
   it('scarta coordinate fuori range o non numeriche', () => {
@@ -167,26 +167,26 @@ describe('normalizeAdsbLolAircraft — casi limite', () => {
       { lon: null },
       { lat: Number.NaN },
     ]) {
-      expect(normalizeAdsbLolAircraft({ ...base, ...bad }).ok).toBe(false);
+      expect(normalizeReadsbAircraft({ ...base, ...bad }).ok).toBe(false);
     }
   });
 
   it('normalizza angoli fuori range e 360 → 0', () => {
-    const r1 = normalizeAdsbLolAircraft({ ...base, track: 360 });
-    const r2 = normalizeAdsbLolAircraft({ ...base, track: -90 });
-    const r3 = normalizeAdsbLolAircraft({ ...base, track: 359.99 });
+    const r1 = normalizeReadsbAircraft({ ...base, track: 360 });
+    const r2 = normalizeReadsbAircraft({ ...base, track: -90 });
+    const r3 = normalizeReadsbAircraft({ ...base, track: 359.99 });
     expect(r1.ok && r1.value.trackDeg).toBe(0);
     expect(r2.ok && r2.value.trackDeg).toBe(270);
     expect(r3.ok && r3.value.trackDeg).toBe(0);
   });
 
   it('mantiene quote negative reali (sotto il livello del mare)', () => {
-    const r = normalizeAdsbLolAircraft({ ...base, alt_baro: -100 });
+    const r = normalizeReadsbAircraft({ ...base, alt_baro: -100 });
     expect(r.ok && r.value.altBaroM).toBe(-30);
   });
 
   it('squawk, categoria ed emergenza validati', () => {
-    const r = normalizeAdsbLolAircraft({
+    const r = normalizeReadsbAircraft({
       ...base,
       squawk: '7800',
       category: 'Z9',
@@ -196,7 +196,7 @@ describe('normalizeAdsbLolAircraft — casi limite', () => {
   });
 
   it('seen_pos assente: posizione accettata ma età sconosciuta', () => {
-    const r = normalizeAdsbLolAircraft({ hex: 'abcdef', lat: 1, lon: 2 });
+    const r = normalizeReadsbAircraft({ hex: 'abcdef', lat: 1, lon: 2 });
     expect(r.ok && r.value.positionAgeS).toBeNull();
   });
 });

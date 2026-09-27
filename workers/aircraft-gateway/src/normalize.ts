@@ -3,7 +3,7 @@ import { MAX_POSITION_AGE_S } from './config.ts';
 import type { AircraftDTO, NormalizeStats, PositionSource, TrackSource } from './types.ts';
 
 /**
- * Normalizzazione ADSB.lol (formato readsb `/v2/*`) → AircraftDTO.
+ * Normalizzazione formato readsb (`ac[]`, usato da FlyItalyADSB) → AircraftDTO.
  *
  * Regole:
  *  - nessun valore stimato: un campo assente resta `null`;
@@ -106,7 +106,7 @@ export function isPrivacyRestricted(dbFlags: unknown): boolean {
   return (flags & (DB_FLAG_PIA | DB_FLAG_LADD)) !== 0;
 }
 
-export function normalizeAdsbLolAircraft(raw: unknown, opts: NormalizeOptions = {}): ItemResult {
+export function normalizeReadsbAircraft(raw: unknown, opts: NormalizeOptions = {}): ItemResult {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw))
     return { ok: false, reason: 'invalid' };
   const a = raw as RawAircraft;
@@ -181,7 +181,7 @@ export function normalizeAdsbLolAircraft(raw: unknown, opts: NormalizeOptions = 
 }
 
 /** Lancia InvalidPayloadError se la struttura di primo livello non è quella attesa. */
-export function normalizeAdsbLolResponse(
+export function normalizeReadsbResponse(
   input: unknown,
   opts: NormalizeOptions = {},
 ): NormalizedAircraftList {
@@ -202,7 +202,7 @@ export function normalizeAdsbLolResponse(
   const seen = new Set<string>();
   const aircraft: AircraftDTO[] = [];
   for (const item of body.ac) {
-    const r = normalizeAdsbLolAircraft(item, itemOpts);
+    const r = normalizeReadsbAircraft(item, itemOpts);
     if (!r.ok) {
       if (r.reason === 'stale') stats.dropped.stalePosition += 1;
       else stats.dropped.invalid += 1;

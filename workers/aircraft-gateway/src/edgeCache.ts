@@ -19,7 +19,7 @@ import type { GatewayReason, GatewayStatus } from './types.ts';
  *
  * Oltre alle fotografie, qui vivono due marcatori condivisi fra isolate:
  * - breaker: dopo un errore upstream nessun isolate del data center
- *   richiama ADSB.lol fino alla scadenza;
+ *   richiama il provider fino alla scadenza;
  * - lock di aggiornamento per area: un solo isolate alla volta rinfresca
  *   un'area, gli altri servono la fotografia precedente.
  */
@@ -52,6 +52,7 @@ const REASONS: ReadonlySet<string> = new Set([
   'upstream_http_5xx',
   'upstream_429',
   'upstream_invalid',
+  'provider_not_configured',
   'gateway_busy',
 ]);
 

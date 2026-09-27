@@ -6,7 +6,9 @@ export type UpstreamErrorKind =
   | 'rate_limited'
   | 'http_4xx'
   | 'http_5xx'
-  | 'invalid';
+  | 'invalid'
+  /** Provider non configurato (chiave assente): nessuna chiamata effettuata. */
+  | 'not_configured';
 
 export class UpstreamError extends Error {
   readonly kind: UpstreamErrorKind;
