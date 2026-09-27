@@ -1,0 +1,12 @@
+# EarthRadar — aircraft gateway (Cloudflare Workers, piano Free).
+# Nessun binding a pagamento: niente KV, D1, Durable Objects, R2.
+# Deploy solo su *.workers.dev finché il DNS del dominio non è verificato.
+name = "earthradar-aircraft"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[vars]
+# Origini autorizzate (CORS allowlist), separate da virgola.
+ALLOWED_ORIGINS = "https://www.alessandropezzali.it,https://pezzaliapp.github.io,http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
+UPSTREAM_BASE_URL = "https://api.adsb.lol"
