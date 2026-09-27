@@ -32,6 +32,12 @@ provider FlyItalyADSB, CC BY-SA 4.0). Il browser non conosce il provider né alc
 
 - La vista iniziale del globo 3D non veniva applicata (effetto eseguito prima del montaggio
   del globo): il globo partiva da (0, 0).
+- **Velo notturno 3D senza buchi**: la calotta notte era un poligono GeoJSON emisferico
+  (raggio 90°) triangolato da three-globe; attraversando l'antimeridiano la triangolazione
+  scartava triangoli e lasciava buchi a forma di triangolo/rombo con la texture diurna a
+  vista. Ora è un guscio sferico con shader (`components/maps/nightShade.ts`): notte =
+  angolo > 90° dal punto subsolare, continua anche ai poli e sull'antimeridiano. Il
+  terminatore si aggiorna davvero ogni minuto (prima era calcolato una sola volta al mount).
 
 ### Removed
 

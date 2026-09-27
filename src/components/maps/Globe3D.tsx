@@ -17,7 +17,6 @@ import { eonetCategorySpec } from '@/services/eonetCategories';
 import { frpColor } from '@/services/firmsApi';
 import { wmoEntry } from '@/lib/wmoCodes';
 import { propagateSatrec, tleToSatrec } from '@/lib/sgp4Lite';
-import { subsolarPoint } from '@/lib/dayNightTerminator';
 import type { Quake } from '@/services/usgsQuakesApi';
 import type { EonetEvent } from '@/services/eonetApi';
 import { aircraftTitle } from '@/lib/aircraftFormat';
@@ -28,6 +27,7 @@ import {
   updateAircraftObject,
 } from './aircraftGlobeObject';
 import { useAircraftGlobeEntities, type AircraftGlobeEntity } from './useAircraftGlobeEntities';
+import { createNightShade, startNightShadeClock } from './nightShade';
 
 /**
  * Vista 3D EarthRadar.
@@ -39,8 +39,8 @@ import { useAircraftGlobeEntities, type AircraftGlobeEntity } from './useAircraf
  *   raddoppiamo il network. La differenza è solo come mappiamo i dati
  *   ai formati di react-globe.gl (pointsData / objectsData /
  *   polygonsData / pathsData / htmlElementsData).
- * - Day/night via overlay polygon "calotta antisolare" semitrasparente,
- *   ricalcolato ogni minuto dal `subsolarPoint`.
+ * - Day/night via guscio sferico con shader (vedi `nightShade.ts`):
+ *   velo continuo sull'emisfero notturno, aggiornato ogni minuto.
  * - Performance fallback: vedi `usePerfFallback`. Se < 25 fps medi nei
  *   primi 3 secondi, viewMode passa a '2d' e il flag triggered è salvato.
  */
@@ -82,7 +82,7 @@ interface HtmlEntity {
 }
 
 interface PolygonEntity {
-  kind: 'night' | 'eonet-polygon';
+  kind: 'eonet-polygon';
   /** GeoJSON-style array di rings: [[lon,lat], …]. */
   coordinates: number[][][];
   color: string;
@@ -361,11 +361,9 @@ export default function Globe3D() {
     return path.length > 1 ? [{ path, color: '#5cf0ff' }] : [];
   }, [issEnabled, showIssTrack, iss.satrec]);
 
-  // Polygons: notte (calotta antisolar) + EONET polygons.
+  // Polygons: EONET (la notte è un guscio a parte, vedi effetto "Velo notturno").
   const polygonsData = useMemo<PolygonEntity[]>(() => {
     const out: PolygonEntity[] = [];
-    // Notte: ring lungo il terminatore + corona antisolar.
-    out.push(buildNightPolygon(new Date(tickRef.current)));
     if (eonetEnabled) {
       for (const e of eonet.data) {
         for (const g of e.geometry) {
@@ -433,6 +431,24 @@ export default function Globe3D() {
     // effetto deve ripartire allora, altrimenti il globo resta su (0, 0).
   }, [globeMounted]);
 
+  // -------- Velo notturno --------
+  // Guscio sferico con shader aggiunto direttamente alla scena: nessuna
+  // triangolazione (niente buchi), aggiornato ogni minuto cambiando un solo
+  // uniform, senza re-render React.
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!g) return;
+    const scene = g.scene();
+    const shade = createNightShade(g.getGlobeRadius());
+    scene.add(shade.mesh);
+    const stop = startNightShadeClock(shade.update);
+    return () => {
+      stop();
+      scene.remove(shade.mesh);
+      shade.dispose();
+    };
+  }, [globeMounted]);
+
   // -------- Render --------
   // Dimensioni: passiamo width/height espliciti misurati con ResizeObserver
   // perché three-render-objects usa di default window.innerWidth/innerHeight
@@ -496,21 +512,9 @@ export default function Globe3D() {
             coordinates: (d as PolygonEntity).coordinates,
           })) as never
         }
-        polygonCapColor={(d: object) => {
-          const e = d as PolygonEntity;
-          if (e.kind === 'night') return 'rgba(5,7,15,0.55)';
-          return `${e.color}33`;
-        }}
-        polygonSideColor={(d: object) => {
-          const e = d as PolygonEntity;
-          if (e.kind === 'night') return 'rgba(0,0,0,0)';
-          return `${e.color}22`;
-        }}
-        polygonStrokeColor={(d: object) => {
-          const e = d as PolygonEntity;
-          if (e.kind === 'night') return 'rgba(0,0,0,0)';
-          return `${e.color}aa`;
-        }}
+        polygonCapColor={(d: object) => `${(d as PolygonEntity).color}33`}
+        polygonSideColor={(d: object) => `${(d as PolygonEntity).color}22`}
+        polygonStrokeColor={(d: object) => `${(d as PolygonEntity).color}aa`}
         polygonAltitude={() => 0.001}
         // HTML weather emojis
         htmlElementsData={htmlElementsData}
@@ -545,42 +549,6 @@ export default function Globe3D() {
       useLayersStore.getState().setSelectedSatellite({ noradId: o.noradId, name: o.name });
     }
   }
-}
-
-/**
- * Costruisce il polygon "notte" come calotta sferica antisolar di raggio π/2.
- * react-globe.gl renderizza polygonsData come geometrie GeoJSON, supporta
- * lat/lng. Approssimo la calotta come un cerchio sulla sfera con 96
- * vertici, calcolati come distance-π/2 dal punto subsolare.
- */
-function buildNightPolygon(now: Date): PolygonEntity {
-  const [subLat, subLon] = subsolarPoint(now);
-  // Antisolar = lato opposto della Terra
-  const antiLat = -subLat;
-  const antiLon = ((subLon + 180 + 540) % 360) - 180;
-  const ring: Array<[number, number]> = [];
-  const SAMPLES = 96;
-  const DEG = Math.PI / 180;
-  const RAD = 180 / Math.PI;
-  const dist = Math.PI / 2; // raggio angolare 90°
-  const phiC = antiLat * DEG;
-  const lamC = antiLon * DEG;
-  for (let i = 0; i <= SAMPLES; i++) {
-    const tBearing = (i / SAMPLES) * 2 * Math.PI;
-    const phi = Math.asin(
-      Math.sin(phiC) * Math.cos(dist) + Math.cos(phiC) * Math.sin(dist) * Math.cos(tBearing),
-    );
-    const lam =
-      lamC +
-      Math.atan2(
-        Math.sin(tBearing) * Math.sin(dist) * Math.cos(phiC),
-        Math.cos(dist) - Math.sin(phiC) * Math.sin(phi),
-      );
-    let lonDeg = lam * RAD;
-    lonDeg = ((lonDeg + 540) % 360) - 180;
-    ring.push([lonDeg, phi * RAD]);
-  }
-  return { kind: 'night', coordinates: [ring], color: '#000000' };
 }
 
 function aircraftLabel(e: AircraftGlobeEntity, language: string): string {
