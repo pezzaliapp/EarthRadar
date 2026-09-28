@@ -19,7 +19,31 @@
  *     import dinamico (chunk obsoleto) innescano UN SOLO reload guardato da
  *     sessionStorage, con cooldown anti-loop. Un normale errore runtime NON
  *     provoca reload.
+ *
+ *
+ * CDN DAVANTI A GITHUB PAGES: tiene `sw.js` in cache per ore, quindi il
+ * controllo aggiornamenti del browser riceveva il service worker vecchio.
+ *  3. Il SW è registrato con un URL per build (`sw.js?v=<id>`), mai in cache.
+ *  4. Al `controllerchange` si ricarica solo se la pagina è di un'altra build.
+ *  5. App installata / scheda lasciata aperta (nessuna navigazione): al ritorno
+ *     in primo piano si confronta l'app shell pubblicata con quella in uso.
+ * L'app shell va in rete per prima: vedi vite.config.ts.
  */
+
+/** Identificativo della build (iniettato da vite.config.ts). */
+export const BUILD_ID: string = (import.meta.env.VITE_BUILD_ID as string | undefined) ?? 'dev';
+/** Base path dell'app ("/EarthRadar/"). */
+const APP_BASE: string = import.meta.env.BASE_URL ?? '/';
+
+/** URL del service worker per una build: cambia a ogni release. */
+export function serviceWorkerUrl(base: string = APP_BASE, buildId: string = BUILD_ID): string {
+  return `${base}sw.js?v=${encodeURIComponent(buildId)}`;
+}
+
+/** true se `scriptURL` è il service worker di `buildId`. */
+export function isWorkerOfBuild(scriptURL: string | undefined | null, buildId: string = BUILD_ID): boolean {
+  return !!scriptURL?.endsWith(`sw.js?v=${encodeURIComponent(buildId)}`);
+}
 
 /** Firme d'errore di import dinamico fallito nei vari browser. */
 const CHUNK_ERROR_PATTERNS = [
@@ -114,11 +138,32 @@ export function reloadForChunkError(deps: ReloadDeps = {}): boolean {
 
 /** Interfaccia minima del ServiceWorkerContainer usata qui (testabile). */
 interface SwContainerLike {
-  controller: unknown;
+  controller: { scriptURL?: string } | null | unknown;
   addEventListener: (type: 'controllerchange', listener: () => void) => void;
+  register?: (url: string, opts?: RegistrationOptions) => Promise<unknown>;
 }
 interface NavigatorLike {
   serviceWorker?: SwContainerLike;
+}
+
+/**
+ * Registra il service worker di QUESTA build (`sw.js?v=<id>`) all'evento `load`
+ * (i moduli ES vengono eseguiti sempre prima di `load`).
+ * `updateViaCache: 'none'`: nessuna cache HTTP per il controllo aggiornamenti.
+ */
+export function registerServiceWorker(
+  nav: NavigatorLike = typeof navigator !== 'undefined' ? navigator : {},
+  win: Pick<Window, 'addEventListener'> | null = typeof window !== 'undefined' ? window : null,
+  base: string = APP_BASE,
+  buildId: string = BUILD_ID,
+): void {
+  const sw = nav.serviceWorker;
+  if (!sw?.register || !win) return;
+  win.addEventListener('load', () => {
+    sw.register!(serviceWorkerUrl(base, buildId), { scope: base, updateViaCache: 'none' })?.catch?.(() => {
+      /* offline o non supportato: resta la versione in uso */
+    });
+  });
 }
 
 /**
@@ -130,6 +175,7 @@ interface NavigatorLike {
 export function setupServiceWorkerAutoReload(
   nav: NavigatorLike = typeof navigator !== 'undefined' ? navigator : {},
   reload: () => void = () => window.location.reload(),
+  buildId: string = BUILD_ID,
 ): void {
   const sw = nav.serviceWorker;
   if (!sw || typeof sw.addEventListener !== 'function') return;
@@ -137,9 +183,87 @@ export function setupServiceWorkerAutoReload(
   let reloaded = false;
   sw.addEventListener('controllerchange', () => {
     if (reloaded || !hadController) return;
+    // Il nuovo SW è quello di questa stessa build: pagina già aggiornata, niente reload.
+    const ctrl = sw.controller as { scriptURL?: string } | null;
+    if (isWorkerOfBuild(ctrl?.scriptURL, buildId)) return;
     reloaded = true;
     reload();
   });
+}
+
+// ─── Controllo release al ritorno in primo piano ─────────────────────────
+
+/** Distanza minima tra due controlli; una pagina appena caricata non ricontrolla (anti-loop). */
+export const RELEASE_CHECK_MIN_GAP_MS = 10 * 60_000;
+/** Controllo periodico mentre l'app resta aperta e visibile. */
+export const RELEASE_CHECK_INTERVAL_MS = 60 * 60_000;
+
+/** Nome del file d'ingresso (assets/index-<hash>.js) di un HTML o di un URL. */
+export function entryOf(htmlOrSrc: string | null | undefined): string | null {
+  const m = /assets\/index-[A-Za-z0-9_-]+\.js/.exec(htmlOrSrc ?? '');
+  return m ? m[0] : null;
+}
+
+export interface ReleaseCheckDeps extends ReloadDeps {
+  fetchImpl?: typeof fetch;
+  base?: string;
+  currentEntry?: string | null;
+}
+
+/**
+ * Confronta l'app shell pubblicata con quella in esecuzione. Se la release è
+ * cambiata ricarica UNA volta (stessa guardia anti-loop dei chunk obsoleti).
+ * Offline/errore: non fa nulla.
+ */
+export async function checkForNewRelease(
+  deps: ReleaseCheckDeps = {},
+): Promise<'same' | 'reloaded' | 'suppressed' | 'unknown'> {
+  const f = deps.fetchImpl ?? (typeof fetch !== 'undefined' ? fetch : null);
+  const base = deps.base ?? APP_BASE;
+  const now = deps.now ?? Date.now();
+  const current =
+    deps.currentEntry !== undefined
+      ? entryOf(deps.currentEntry)
+      : entryOf(
+          typeof document !== 'undefined'
+            ? document.querySelector('script[type="module"][src*="/assets/index-"]')?.getAttribute('src')
+            : null,
+        );
+  if (!f || !current) return 'unknown';
+  let latest: string | null = null;
+  try {
+    const res = await f(`${base}index.html?release-check=${now}`, { cache: 'no-store' });
+    if (!res.ok) return 'unknown';
+    latest = entryOf(await res.text());
+  } catch {
+    return 'unknown'; // offline: si continua con la versione disponibile
+  }
+  if (!latest || latest === current) return 'same';
+  return reloadForChunkError({ storage: deps.storage, now, reload: deps.reload }) ? 'reloaded' : 'suppressed';
+}
+
+/**
+ * Controlla la release quando l'app torna in primo piano, quando torna la
+ * rete e ogni ora mentre resta visibile (con distanza minima tra i controlli).
+ */
+export function setupReleaseCheck(
+  win: Pick<Window, 'addEventListener' | 'setInterval'> | null = typeof window !== 'undefined' ? window : null,
+  doc: Pick<Document, 'addEventListener' | 'visibilityState'> | null = typeof document !== 'undefined' ? document : null,
+  check: () => Promise<unknown> = () => checkForNewRelease(),
+  clock: () => number = () => Date.now(),
+): void {
+  if (!win || !doc) return;
+  let lastCheck = clock(); // la pagina è appena stata caricata: è già la più recente
+  const maybeCheck = () => {
+    if (doc.visibilityState === 'hidden') return;
+    const now = clock();
+    if (now - lastCheck < RELEASE_CHECK_MIN_GAP_MS) return;
+    lastCheck = now;
+    void check();
+  };
+  doc.addEventListener('visibilitychange', maybeCheck);
+  win.addEventListener('online', maybeCheck);
+  win.setInterval(maybeCheck, RELEASE_CHECK_INTERVAL_MS);
 }
 
 /**

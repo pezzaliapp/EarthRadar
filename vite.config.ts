@@ -7,12 +7,25 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Identificativo della build: entra nell'URL del service worker
+ * (`sw.js?v=<id>`), così ogni release usa un URL che nessuna cache (CDN o
+ * browser) può avere già con il contenuto vecchio.
+ */
+const BUILD_ID = process.env.VITE_BUILD_ID || Date.now().toString(36);
+
 export default defineConfig({
   base: '/EarthRadar/',
+  define: {
+    'import.meta.env.VITE_BUILD_ID': JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registrazione dal bundle hashato (src/lib/pwaUpdate.ts) con URL per build,
+      // non dallo script statico registerSW.js (tenuto in cache dalla CDN).
+      injectRegister: false,
       includeAssets: [
         'favicon.svg',
         'icons/icon-192.png',
@@ -61,11 +74,31 @@ export default defineConfig({
         // hls.js (player LIVE) escluso dal precache: si scarica solo al primo
         // "GUARDA IN DIRETTA" su browser senza HLS nativo (CAM OFF = zero hls.js).
         globIgnores: ['**/Globe3D-*.js', '**/cam/**', '**/hls.light-*.js'],
-        navigateFallback: '/EarthRadar/index.html',
-        navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
+        // App shell: NON servita dalla precache per le navigazioni (vedi la
+        // route "er-app-shell" sotto): online arriva sempre l'index.html
+        // pubblicato; la copia precachata resta il fallback offline.
+        navigateFallback: null,
+        directoryIndex: null,
+        // Nuova release attiva subito e prende il controllo delle pagine aperte
+        // (con injectRegister: false il plugin non li imposta da solo).
+        skipWaiting: true,
+        clientsClaim: true,
         // Pre-cache budget bumped because of three.js + leaflet + globe textures.
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
+          // App shell (navigazioni SPA): sempre dalla rete, nessuna copia runtime.
+          // Offline → index.html precachato della build del service worker
+          // attivo, coerente con i suoi asset precachati.
+          {
+            urlPattern: ({ request, url }) =>
+              request.mode === 'navigate' &&
+              url.pathname.startsWith('/EarthRadar/') &&
+              !/\/[^/?]+\.[^/]+$/.test(url.pathname),
+            handler: 'NetworkOnly',
+            options: {
+              precacheFallback: { fallbackURL: '/EarthRadar/index.html' },
+            },
+          },
           {
             urlPattern: /^https:\/\/earthquake\.usgs\.gov\//,
             handler: 'StaleWhileRevalidate',
