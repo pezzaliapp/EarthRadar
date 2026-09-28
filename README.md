@@ -39,6 +39,7 @@ EarthRadar is an open-source Progressive Web App (PWA) that aggregates **public 
 | ⚡ **Lightning** | Best-effort live (Blitzortung mirror) or static GIBS GOES-GLM |
 | 🛰️ **ISS Live** | Real-time position + ground track + day/night terminator |
 | 🌑 **Day/night terminator** | Solar position computed client-side |
+| 📷 **CAM — public webcams** | **CAM Explorer** (areas · map area · search) over ~4,800 cameras. **LIVE** = real HLS video: Caltrans (California), Iowa DOT, INGV Etna/Aeolian volcanoes and CNR-ISMAR Venice via GARR.tv. **SNAP** = periodically refreshed images: TfL London, Fintraffic Finland, Hong Kong TD. Video starts only on tap, one stream at a time, expandable/full-screen player, per-source licence and attribution, €0 (no keys, no proxy) |
 | 📱 **PWA** | Offline cache, installable, mobile-first dark theme, glassmorphism |
 | 🌍 **i18n** | Italian + English with browser auto-detection |
 | 🔔 **Opt-in alerts** | Nearby M≥5 earthquakes, visible ISS passes |
@@ -117,6 +118,9 @@ Click a satellite in EarthRadar → opens its TLE in CubeSat. Click an asteroid 
 - wheretheiss.at — ISS live position
 - Blitzortung community — Lightning detection
 - OpenStreetMap contributors
+- CAM LIVE — Caltrans (public domain unless otherwise indicated) · Iowa Department of Transportation (CC BY 4.0) · INGV – Osservatorio Etneo, doi:10.13127/etna/tvchn and doi:10.13127/aeolian/tvchn (CC BY 4.0) · CNR-ISMAR (CC BY 4.0) · video via GARR.tv
+- CAM SNAP — Powered by TfL Open Data · Fintraffic / digitraffic.fi (CC BY 4.0) · Transport Department, HKSAR Government — DATA.GOV.HK
+- hls.js (Apache-2.0) — video player
 
 ### License
 
@@ -145,6 +149,7 @@ EarthRadar è una **PWA open-source** che aggrega dati pubblici **USGS, NASA, NO
 | ⚡ **Fulmini** | Best-effort live (mirror Blitzortung) o GIBS GOES-GLM statico |
 | 🛰️ **ISS Live** | Posizione real-time + ground track + terminatore giorno/notte |
 | 🌑 **Terminatore** | Posizione solare calcolata client-side |
+| 📷 **CAM — webcam pubbliche** | **CAM Explorer** (aree · zona mappa · cerca) su ~4.800 camere. **LIVE** = vero video HLS: Caltrans (California), Iowa DOT, vulcani Etna ed Eolie INGV e CNR-ISMAR Venezia via GARR.tv. **SNAP** = immagini aggiornate periodicamente: TfL Londra, Fintraffic Finlandia, Hong Kong TD. Il video parte solo al tocco, uno stream alla volta, player espandibile/schermo intero, licenza e attribuzione per fonte, costo €0 (nessuna chiave, nessun proxy) |
 | 📱 **PWA** | Cache offline, installabile, tema dark mobile-first, glassmorphism |
 | 🌍 **i18n** | Italiano + inglese con auto-detection |
 | 🔔 **Alert opzionali** | Terremoti M≥5 nelle vicinanze, passaggi ISS visibili |

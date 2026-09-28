@@ -14,6 +14,7 @@ import { useAircraftDemand, useAircraftView } from '@/hooks/useAircraftFeed';
 import { useApplyIncomingDeepLink } from '@/hooks/useApplyIncomingDeepLink';
 import { useNotificationsRunner } from '@/hooks/useNotifications';
 import { useLayersStore } from '@/store/layersStore';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSettingsStore } from '@/store/settingsStore';
 import { activeGibsOverlays } from '@/services/gibsLayers';
 import { buildShareUrl } from '@/lib/buildShareUrl';
@@ -48,6 +49,11 @@ const FireDetailPanel = lazy(() => import('@/components/panels/FireDetailPanel')
 // per WS Blitzortung in v1.1).
 const LightningLayer = lazy(() => import('@/components/overlays/LightningLayer'));
 const LightningDetailPanel = lazy(() => import('@/components/panels/LightningDetailPanel'));
+// CAM: chunk dedicato (catalogo + clustering + card). Nulla viene caricato
+// né scaricato finché l'utente non accende il layer.
+const CamLayer = lazy(() => import('@/components/overlays/CamLayer'));
+const CamCard = lazy(() => import('@/components/panels/CamCard'));
+const CamExplorer = lazy(() => import('@/components/panels/CamExplorer'));
 // Globe3D: chunk pesante (react-globe.gl + three + globe.gl). Lazy: caricato
 // solo se l'utente passa in vista 3D. Mai eager.
 const Globe3D = lazy(() => import('@/components/maps/Globe3D'));
@@ -100,6 +106,12 @@ export default function Home() {
   const firmsEnabled = useLayersStore((s) => s.overlays.firms?.enabled ?? false);
   const selectedFireId = useLayersStore((s) => s.selectedFireId);
   const lightningEnabled = useLayersStore((s) => s.overlays.lightning?.enabled ?? false);
+  const camEnabled = useLayersStore((s) => s.overlays.cam?.enabled ?? false);
+  const camSelected = useLayersStore((s) => s.selectedCam !== null);
+  const camExplorerOpen = useLayersStore((s) => s.camExplorerOpen);
+  // Desktop (lg): Explorer nella colonna laterale; sotto: pannello dal basso.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const showCamExplorer = camEnabled && camExplorerOpen;
   const overlays = useLayersStore((s) => s.overlays);
   const viewMode = useSettingsStore((s) => s.viewMode);
   const perfFallbackTriggered = useSettingsStore((s) => s.perfFallbackTriggered);
@@ -167,13 +179,14 @@ export default function Home() {
         <div className="hidden rounded-xl border border-cyan-glow/30 bg-cyan-glow/5 px-4 py-2.5 text-xs text-cyan-glow sm:block">
           {t('home.phase1Notice')}
         </div>
+        <CamCallout />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-3">
           {/* Mobile: mappa più bassa (62vh) così mappa + controlli overlay stanno
               sopra la piega su iPhone portrait. Desktop/tablet invariati (70vh). */}
-          <div className="relative h-[min(62vh,560px)] sm:h-[min(70vh,560px)]">
+          <div id="er-map" className="relative h-[min(62vh,560px)] scroll-mt-20 sm:h-[min(70vh,560px)]">
             {is3D ? (
               <Suspense fallback={<div className="glass h-full w-full p-4 text-sm text-space-300">{t('home.globeLoading')}</div>}>
                 <Globe3D />
@@ -226,7 +239,17 @@ export default function Home() {
                     <LightningLayer />
                   </Suspense>
                 )}
+                {camEnabled && (
+                  <Suspense fallback={null}>
+                    <CamLayer />
+                  </Suspense>
+                )}
               </Map2D>
+            )}
+            {camEnabled && camSelected && (
+              <Suspense fallback={null}>
+                <CamCard />
+              </Suspense>
             )}
             {!is3D && radarEnabled && (
               <Suspense fallback={null}>
@@ -289,6 +312,11 @@ export default function Home() {
           id="layer-panel-mobile"
           className={`${showPanelMobile ? '' : 'hidden'} space-y-3 lg:block lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto`}
         >
+          {showCamExplorer && isDesktop && (
+            <Suspense fallback={null}>
+              <CamExplorer variant="sidebar" />
+            </Suspense>
+          )}
           {selectedSat && (
             <Suspense fallback={null}>
               <SatelliteDetailPanel />
@@ -328,6 +356,12 @@ export default function Home() {
         </div>
       </section>
 
+      {showCamExplorer && !isDesktop && (
+        <Suspense fallback={null}>
+          <CamExplorer variant="sheet" />
+        </Suspense>
+      )}
+
       <section className="space-y-2">
         <h2 className="label">{t('home.listingTitle')}</h2>
         {quakeLoading && quakes.length === 0 ? (
@@ -343,5 +377,35 @@ export default function Home() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * Callout "NEW · 📷 CAM" nel blocco iniziale: attiva CAM per la sessione e
+ * apre CAM Explorer. Nessun numero nel testo; nessun fetch CAM finché
+ * l'utente non tocca.
+ */
+function CamCallout() {
+  const { t } = useTranslation();
+  const setCamEnabled = useLayersStore((s) => s.setCamEnabled);
+  const setCamExplorerOpen = useLayersStore((s) => s.setCamExplorerOpen);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setCamEnabled(true);
+        setCamExplorerOpen(true);
+      }}
+      aria-label={t('cam.ctaAria')}
+      className="group flex min-h-[44px] w-full items-center gap-3 rounded-xl border border-magenta-glow/40 bg-magenta-glow/5 px-3 py-2 text-left transition-colors hover:border-magenta-glow/70 hover:bg-magenta-glow/10 sm:px-4"
+    >
+      <span className="shrink-0 rounded-md border border-magenta-glow/50 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-magenta-glow">
+        {t('cam.ctaBadge')}
+      </span>
+      <span className="min-w-0 flex-1 text-xs text-space-100 sm:text-sm">{t('cam.cta')}</span>
+      <span aria-hidden className="text-magenta-glow transition-transform group-hover:translate-x-0.5">
+        →
+      </span>
+    </button>
   );
 }

@@ -30,6 +30,7 @@ export type LayerId =
   | 'eonet'
   | 'iss'
   | 'lightning'
+  | 'cam'
   // Overlay non-tile
   | 'terminator'
   | 'rainviewer';
@@ -54,6 +55,24 @@ export interface SelectedAircraft {
   id: string;
   /** Etichetta già pronta per la UI (mai ricostruita da dati oscurati). */
   label: string;
+}
+
+/** Camera CAM selezionata (per la CamCard). */
+export interface SelectedCam {
+  source: string;
+  id: string;
+}
+
+/** Modalità di CAM Explorer. */
+export type CamExplorerMode = 'areas' | 'near' | 'search';
+/** Filtro principale CAM: tutte, solo video LIVE, solo immagini SNAP. */
+export type CamTypeFilter = 'all' | 'live' | 'snap';
+
+/** Richiesta di centrare mappa/globo su una camera (seq cambia a ogni richiesta). */
+export interface CamFocus {
+  lat: number;
+  lon: number;
+  seq: number;
 }
 
 /** Cella meteo selezionata: direzione cardinale relativa al centro. */
@@ -115,6 +134,16 @@ interface LayersState {
   /** ID hotspot FIRMS selezionato (composito lat,lon,acqDate,acqTime). */
   selectedFireId: string | null;
 
+  /** Camera CAM aperta nella CamCard. Transiente (non persistita). */
+  selectedCam: SelectedCam | null;
+  /** CAM Explorer aperto (transiente). */
+  camExplorerOpen: boolean;
+  camExplorerMode: CamExplorerMode;
+  /** Filtro TUTTE / LIVE / SNAP (transiente), condiviso da Explorer, mappa e globo. */
+  camTypeFilter: CamTypeFilter;
+  /** Ultima richiesta di centratura su una camera (transiente). */
+  camFocus: CamFocus | null;
+
   /** Aggiorna il layer base mappa. */
   setBaseLayer: (id: LayerId) => void;
   /** Mostra/nasconde un overlay. */
@@ -158,6 +187,15 @@ interface LayersState {
   setFiresSource: (s: FirmsSource) => void;
   setFiresDayRange: (d: FirmsDayRange) => void;
   setSelectedFireId: (id: string | null) => void;
+
+  setSelectedCam: (sel: SelectedCam | null) => void;
+  /** Accende/spegne CAM per la sessione; spegnendo chiude Explorer e CamCard. */
+  setCamEnabled: (on: boolean) => void;
+  setCamExplorerOpen: (open: boolean) => void;
+  setCamExplorerMode: (mode: CamExplorerMode) => void;
+  setCamTypeFilter: (filter: CamTypeFilter) => void;
+  /** Seleziona una camera e chiede a mappa/globo di centrarla. */
+  focusCam: (cam: SelectedCam & { lat: number; lon: number }) => void;
 }
 
 const DEFAULT_OPACITY = 0.85;
@@ -185,6 +223,7 @@ const DEFAULT_OVERLAYS: Record<LayerId, LayerSettings> = {
   eonet: ov(false, 1),
   iss: ov(false, 1),
   lightning: ov(false, 1),
+  cam: ov(false, 1),
   terminator: ov(true, 0.6),
   rainviewer: ov(false, 0.6),
 };
@@ -218,6 +257,11 @@ export const useLayersStore = create<LayersState>()(
       firesSource: 'VIIRS_SNPP_NRT',
       firesDayRange: 1,
       selectedFireId: null,
+      selectedCam: null,
+      camExplorerOpen: false,
+      camExplorerMode: 'areas',
+      camTypeFilter: 'all',
+      camFocus: null,
       setBaseLayer: (baseLayer) => set({ baseLayer }),
       toggleOverlay: (id) =>
         set((s) => ({
@@ -288,13 +332,28 @@ export const useLayersStore = create<LayersState>()(
       setFiresSource: (firesSource) => set({ firesSource }),
       setFiresDayRange: (firesDayRange) => set({ firesDayRange }),
       setSelectedFireId: (selectedFireId) => set({ selectedFireId }),
+      setSelectedCam: (selectedCam) => set({ selectedCam }),
+      setCamEnabled: (on) =>
+        set((s) => ({
+          overlays: { ...s.overlays, cam: { ...s.overlays.cam, enabled: on } },
+          ...(on ? {} : { selectedCam: null, camExplorerOpen: false, camFocus: null }),
+        })),
+      setCamExplorerOpen: (camExplorerOpen) => set({ camExplorerOpen }),
+      setCamExplorerMode: (camExplorerMode) => set({ camExplorerMode }),
+      setCamTypeFilter: (camTypeFilter) => set({ camTypeFilter }),
+      focusCam: ({ source, id, lat, lon }) =>
+        set((s) => ({
+          selectedCam: { source, id },
+          camFocus: isValidLatLon(lat, lon) ? { lat, lon, seq: (s.camFocus?.seq ?? 0) + 1 } : s.camFocus,
+        })),
     }),
     {
       name: 'earthradar:layers',
       version: 7,
       partialize: (s) => ({
         baseLayer: s.baseLayer,
-        overlays: s.overlays,
+        // CAM è OFF a ogni avvio: lo stato ON non viene mai salvato.
+        overlays: { ...s.overlays, cam: { ...s.overlays.cam, enabled: false } },
         satelliteGroups: s.satelliteGroups,
         aircraftShowOnGround: s.aircraftShowOnGround,
         weatherGridStepKm: s.weatherGridStepKm,
@@ -313,7 +372,12 @@ export const useLayersStore = create<LayersState>()(
         return {
           ...current,
           baseLayer: p.baseLayer ?? current.baseLayer,
-          overlays: { ...current.overlays, ...(p.overlays ?? {}) },
+          overlays: {
+            ...current.overlays,
+            ...(p.overlays ?? {}),
+            // Difesa: anche uno stato salvato altrove non riaccende CAM all'avvio.
+            cam: { ...current.overlays.cam, ...(p.overlays?.cam ?? {}), enabled: false },
+          },
           satelliteGroups: p.satelliteGroups ?? current.satelliteGroups,
           aircraftShowOnGround: p.aircraftShowOnGround ?? current.aircraftShowOnGround,
           weatherGridStepKm: p.weatherGridStepKm ?? current.weatherGridStepKm,

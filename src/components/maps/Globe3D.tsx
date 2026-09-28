@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import * as THREE from 'three';
-import { useTranslation } from '@/i18n';
+import { translate, useTranslation } from '@/i18n';
 import { useLayersStore } from '@/store/layersStore';
 import { useQuakes } from '@/hooks/useQuakes';
 import { useSatellites } from '@/hooks/useSatellites';
@@ -9,6 +9,7 @@ import { useIss } from '@/hooks/useIss';
 import { useAircraftView } from '@/hooks/useAircraftFeed';
 import { useEonet } from '@/hooks/useEonet';
 import { useFires } from '@/hooks/useFires';
+import { useCamCatalog } from '@/hooks/useCamCatalog';
 import { useWeatherGrid } from '@/hooks/useWeatherGrid';
 import { usePerfFallback } from '@/hooks/usePerfFallback';
 import { autoTextureSet } from '@/lib/textureLoader';
@@ -29,6 +30,22 @@ import {
 import { useAircraftGlobeEntities, type AircraftGlobeEntity } from './useAircraftGlobeEntities';
 import { createNightShade, startNightShadeClock } from './nightShade';
 import { coverageRing, isWideGlobeView } from '@/lib/aircraftCoverage';
+import {
+  GLOBE_NO_CLUSTER_ALTITUDE,
+  globeCellDegrees,
+  globeClusterZoomAltitude,
+  globeFocusAltitude,
+  globeSingleRadiusDeg,
+  isAtGlobeCamFloor,
+  gridCluster,
+  nearestPoints,
+  quantizeGlobeAltitude,
+  type Bounds,
+  type GridItem,
+} from '@/lib/camCluster';
+import type { Cam } from '@/services/camCatalog';
+import { CAM_LIVE_COLOR, CAM_MARKER_COLOR } from '@/services/camSources';
+import { filterByType } from '@/lib/camExplorer';
 
 /**
  * Vista 3D EarthRadar.
@@ -54,16 +71,20 @@ const POV_DEBOUNCE_MS = 1000;
 /** Anello dell'area interrogata dagli aerei: appena sopra la superficie, poco visibile. */
 const COVERAGE_RING_ALTITUDE = 0.0015;
 const COVERAGE_RING_COLOR = 'rgba(92, 240, 255, 0.35)';
+/** Massimo di punti CAM (singoli + cluster) sul globo. */
+const CAM_3D_MAX_POINTS = 500;
+/** Identità stabile con CAM OFF: i memo degli altri layer non si ricalcolano. */
+const NO_CAM_ITEMS: GridItem<Cam>[] = [];
 
 interface PointEntity {
-  kind: 'quake' | 'eonet-point' | 'firms';
+  kind: 'quake' | 'eonet-point' | 'firms' | 'cam';
   lat: number;
   lng: number;
   alt: number; // altitudine relativa al raggio (0 = terra)
   color: string;
   size: number; // ridimensionato per pointAltitude (proporzionale)
   label: string;
-  data: Quake | EonetEvent | FirmsHotspot;
+  data: Quake | EonetEvent | FirmsHotspot | Cam;
 }
 
 interface ObjectEntity {
@@ -83,6 +104,18 @@ interface HtmlEntity {
   emoji: string;
   label: string;
   direction: string;
+}
+
+/** Cluster CAM: badge HTML a dimensione fissa in pixel (mai un poligono 3D). */
+interface CamClusterHtmlEntity {
+  kind: 'cam-cluster';
+  lat: number;
+  lng: number;
+  count: number;
+  bounds: Bounds;
+  label: string;
+  /** Il cluster contiene camere LIVE (pallino rosso sul badge). */
+  hasLive: boolean;
 }
 
 interface PolygonEntity {
@@ -169,6 +202,15 @@ export default function Globe3D() {
   const firmsEnabled = useLayersStore((s) => s.overlays.firms?.enabled ?? false);
   const firesSource = useLayersStore((s) => s.firesSource);
   const firesDayRange = useLayersStore((s) => s.firesDayRange);
+  const camEnabled = useLayersStore((s) => s.overlays.cam?.enabled ?? false);
+  // Stesso catalogo (e stessa richiesta condivisa) della vista 2D.
+  const { cams: allCams } = useCamCatalog(camEnabled);
+  const camTypeFilter = useLayersStore((s) => s.camTypeFilter);
+  // Stesso filtro TUTTE/LIVE/SNAP di CAM Explorer.
+  const cams = useMemo(() => filterByType(allCams, camTypeFilter), [allCams, camTypeFilter]);
+  const selectedCam = useLayersStore((s) => s.selectedCam);
+  const camFocus = useLayersStore((s) => s.camFocus);
+
   const fires = useFires(firmsEnabled, {
     bbox: [-180, -85, 180, 85],
     source: firesSource,
@@ -197,14 +239,39 @@ export default function Globe3D() {
   const [aircraftScale, setAircraftScale] = useState(() => aircraftSymbolScale(2.4));
   // Vista ampia: il cerchio interrogato è molto più piccolo dell'area visibile.
   const [wideView, setWideView] = useState(() => isWideGlobeView(2.4));
+  // CAM: quota quantizzata (celle e raggio dei punti) e centro della vista a
+  // camera ferma (camere singole più vicine quando si è molto vicini).
+  const [camAltQ, setCamAltQ] = useState(() => quantizeGlobeAltitude(2.4));
+  const [camCenter, setCamCenter] = useState<[number, number]>(
+    () => useLayersStore.getState().mapCenter,
+  );
+  // Con CAM OFF nessuno stato CAM si aggiorna durante lo zoom (zero re-render).
+  const camEnabledRef = useRef(camEnabled);
+  useEffect(() => {
+    camEnabledRef.current = camEnabled;
+    const g = globeRef.current;
+    if (!camEnabled || !g) return;
+    const pov = g.pointOfView();
+    setCamAltQ(quantizeGlobeAltitude(pov.altitude));
+    setCamCenter([pov.lat, ((((pov.lng + 180) % 360) + 360) % 360) - 180]);
+  }, [camEnabled]);
+  // Camera scelta da CAM Explorer: centra il globo mantenendo il contesto.
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!camFocus || !g) return;
+    const altitude = globeFocusAltitude(g.pointOfView().altitude);
+    g.pointOfView({ lat: camFocus.lat, lng: camFocus.lon, altitude }, 1000);
+  }, [camFocus]);
   const handlePovChange = useCallback((pov: { lat: number; lng: number; altitude: number }) => {
     const nextScale = aircraftSymbolScale(pov.altitude);
     setAircraftScale((cur) => (Math.abs(nextScale - cur) / cur > 0.15 ? nextScale : cur));
     setWideView(isWideGlobeView(pov.altitude));
+    if (camEnabledRef.current) setCamAltQ(quantizeGlobeAltitude(pov.altitude));
     if (povTimerRef.current !== null) window.clearTimeout(povTimerRef.current);
     povTimerRef.current = window.setTimeout(() => {
       povTimerRef.current = null;
       const lng = ((((pov.lng + 180) % 360) + 360) % 360) - 180;
+      if (camEnabledRef.current) setCamCenter([pov.lat, lng]);
       const [lat0, lon0] = useLayersStore.getState().mapCenter;
       if (Math.abs(pov.lat - lat0) < 0.1 && Math.abs(lng - lon0) < 0.1) return;
       useLayersStore.getState().setMapCenter([pov.lat, lng]);
@@ -258,7 +325,30 @@ export default function Globe3D() {
 
   // -------- Trasformazioni --------
 
-  // Points: quakes + eonet-point + firms (tutti "a terra")
+  // CAM: da lontano cluster a griglia (celle in gradi ∝ quota); da vicino le
+  // camere singole più vicine al centro della vista. Sempre ≤ 500 elementi.
+  const camItems = useMemo<GridItem<Cam>[]>(() => {
+    if (!camEnabled || cams.length === 0) return NO_CAM_ITEMS;
+    if (camAltQ <= GLOBE_NO_CLUSTER_ALTITUDE) {
+      return nearestPoints(cams, camCenter[0], camCenter[1], CAM_3D_MAX_POINTS).map((c) => ({
+        kind: 'single' as const,
+        lat: c.lat,
+        lon: c.lon,
+        point: c,
+      }));
+    }
+    const cell = globeCellDegrees(camAltQ);
+    return gridCluster(
+      cams,
+      (c) => [Math.floor(c.lat / cell), Math.floor(c.lon / cell)],
+      CAM_3D_MAX_POINTS,
+      (c) => c.type === 'live',
+    );
+  }, [camEnabled, cams, camAltQ, camCenter]);
+
+  const camPointSize = camEnabled ? globeSingleRadiusDeg(camAltQ) : 0;
+
+  // Points: quakes + eonet-point + firms + camere singole (tutti "a terra")
   const pointsData = useMemo<PointEntity[]>(() => {
     const out: PointEntity[] = [];
     if (quakesEnabled) {
@@ -306,8 +396,51 @@ export default function Globe3D() {
         });
       }
     }
+    if (camEnabled && selectedCam) {
+      // Camera selezionata sempre visibile (anche dentro un cluster), in evidenza.
+      const sel = allCams.find((c) => c.source === selectedCam.source && c.id === selectedCam.id);
+      if (sel) {
+        out.push({
+          kind: 'cam',
+          lat: sel.lat,
+          lng: sel.lon,
+          alt: 0.003,
+          color: '#ff5cd0',
+          size: camPointSize * 1.8,
+          label: `📷 ${escapeHtml(sel.name)} · SNAP`,
+          data: sel,
+        });
+      }
+    }
+    for (const it of camItems) {
+      if (it.kind !== 'single') continue;
+      out.push({
+        kind: 'cam',
+        lat: it.lat,
+        lng: it.lon,
+        alt: 0.001,
+        // LIVE: piccolo punto rosso; SNAP: indicatore CAM viola.
+        color: it.point.type === 'live' ? CAM_LIVE_COLOR : CAM_MARKER_COLOR,
+        size: camPointSize,
+        label: `📷 ${escapeHtml(it.point.name)} · ${it.point.type === 'live' ? '▶ LIVE' : 'SNAP'}`,
+        data: it.point,
+      });
+    }
     return out;
-  }, [quakesEnabled, quakes, eonetEnabled, eonet.data, firmsEnabled, fires.mode, fires.hotspots]);
+  }, [
+    quakesEnabled,
+    quakes,
+    eonetEnabled,
+    eonet.data,
+    firmsEnabled,
+    fires.mode,
+    fires.hotspots,
+    camItems,
+    camPointSize,
+    camEnabled,
+    allCams,
+    selectedCam,
+  ]);
 
   // Objects: satelliti + ISS (sfere THREE custom a quota reale scalata)
   const objectsData = useMemo<ObjectEntity[]>(() => {
@@ -430,6 +563,24 @@ export default function Globe3D() {
     return out;
   }, [weatherEnabled, weather.center, weather.cells]);
 
+  // Cluster CAM come badge HTML (dimensione fissa a schermo, con conteggio).
+  const htmlData = useMemo<Array<HtmlEntity | CamClusterHtmlEntity>>(() => {
+    const clusters: CamClusterHtmlEntity[] = [];
+    for (const it of camItems) {
+      if (it.kind !== 'cluster') continue;
+      clusters.push({
+        kind: 'cam-cluster',
+        lat: it.lat,
+        lng: it.lon,
+        count: it.count,
+        bounds: it.bounds,
+        hasLive: it.flagged > 0,
+        label: translate(language, 'cam.cluster', { count: it.count }),
+      });
+    }
+    return clusters.length > 0 ? [...htmlElementsData, ...clusters] : htmlElementsData;
+  }, [htmlElementsData, camItems, language]);
+
   // -------- Setup imperativo controlli (auto-rotate molto leggero) --------
   const globeMounted = size.w > 0 && size.h > 0;
   useEffect(() => {
@@ -537,11 +688,15 @@ export default function Globe3D() {
         polygonSideColor={(d: object) => `${(d as PolygonEntity).color}22`}
         polygonStrokeColor={(d: object) => `${(d as PolygonEntity).color}aa`}
         polygonAltitude={() => 0.001}
-        // HTML weather emojis
-        htmlElementsData={htmlElementsData}
+        // HTML: emoji meteo + badge dei cluster CAM
+        htmlElementsData={htmlData}
         htmlLat={(d: object) => (d as HtmlEntity).lat}
         htmlLng={(d: object) => (d as HtmlEntity).lng}
-        htmlElement={(d: object) => buildWeatherChip(d as HtmlEntity)}
+        htmlElement={(d: object) =>
+          (d as CamClusterHtmlEntity).kind === 'cam-cluster'
+            ? buildCamClusterBadge(d as CamClusterHtmlEntity, zoomToCamCluster)
+            : buildWeatherChip(d as HtmlEntity)
+        }
         // Localizzazione tooltip (lang non passa, ma il label l'abbiamo già localizzato)
         labelsTransitionDuration={400}
         rendererConfig={{ alpha: true, antialias: false }}
@@ -568,7 +723,30 @@ export default function Globe3D() {
       useLayersStore
         .getState()
         .setSelectedFireId(`${h.lat.toFixed(4)},${h.lon.toFixed(4)},${h.acqDate},${h.acqTime}`);
+    } else if (p.kind === 'cam') {
+      const c = p.data as Cam;
+      useLayersStore.getState().setSelectedCam({ source: c.source, id: c.id });
     }
+  }
+
+  /**
+   * Avvicina la camera sul cluster quanto basta perché i membri si separino,
+   * senza scendere sotto la quota leggibile. Già lì: apre CAM Explorer
+   * ("Zona mappa") centrato sul cluster.
+   */
+  function zoomToCamCluster(c: CamClusterHtmlEntity) {
+    const g = globeRef.current;
+    if (!g) return;
+    const current = g.pointOfView().altitude;
+    if (isAtGlobeCamFloor(current)) {
+      g.pointOfView({ lat: c.lat, lng: c.lng, altitude: current }, 700);
+      useLayersStore.getState().setMapCenter([c.lat, c.lng]);
+      useLayersStore.getState().setCamExplorerMode('near');
+      useLayersStore.getState().setCamExplorerOpen(true);
+      return;
+    }
+    const altitude = globeClusterZoomAltitude(c.bounds, current);
+    g.pointOfView({ lat: c.lat, lng: c.lng, altitude }, 900);
   }
 
   function handleObjectClick(o: ObjectEntity) {
@@ -594,12 +772,63 @@ function aircraftLabel(e: AircraftGlobeEntity, language: string): string {
   return [aircraftTitle(a, language), a.typeCode, alt].filter(Boolean).join(' · ');
 }
 
+/** I label del globo sono HTML: i testi del catalogo CAM vanno sempre escapati. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /** Costruisce un piccolo mesh THREE per i satelliti / ISS. */
 function makeSatMesh(o: ObjectEntity): THREE.Object3D {
   const geom = new THREE.SphereGeometry(o.kind === 'iss' ? 1.2 : 0.6, 8, 8);
   const mat = new THREE.MeshBasicMaterial({ color: o.color });
   const mesh = new THREE.Mesh(geom, mat);
   return mesh;
+}
+
+/** Badge circolare del cluster CAM: numero di camere, dimensione fissa in pixel. */
+function buildCamClusterBadge(
+  c: CamClusterHtmlEntity,
+  onClick: (c: CamClusterHtmlEntity) => void,
+): HTMLElement {
+  const size = c.count >= 100 ? 38 : c.count >= 10 ? 32 : 26;
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.style.cssText = `
+    pointer-events: auto;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    width: ${size}px;
+    height: ${size}px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 9999px;
+    border: 1.5px solid ${CAM_MARKER_COLOR};
+    background: rgba(11,16,32,0.85);
+    box-shadow: 0 0 10px ${CAM_MARKER_COLOR}88;
+    color: #ede9fe;
+    font: 600 11px ui-monospace, monospace;
+    line-height: 1;
+  `;
+  el.textContent = String(Math.floor(c.count));
+  if (c.hasLive) {
+    el.style.position = 'relative';
+    const dot = document.createElement('span');
+    dot.style.cssText = `position:absolute;top:-1px;right:-1px;width:9px;height:9px;border-radius:9999px;background:${CAM_LIVE_COLOR};border:1.5px solid #0b1020;`;
+    el.appendChild(dot);
+  }
+  el.title = c.label;
+  el.setAttribute('aria-label', `📷 ${c.label}`);
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClick(c);
+  });
+  return el;
 }
 
 /** Crea un chip HTML per la cella weather (htmlElementsData). */

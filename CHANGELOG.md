@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-09-28
+
+### Added — CAM: webcam pubbliche LIVE + SNAP
+
+- **Layer CAM** (OFF a ogni avvio, mai salvato ON) e **CAM Explorer**: filtro TUTTE / 🔴 LIVE /
+  📷 SNAP combinato con Aree (generate dalle fonti), Zona mappa (ordine per distanza) e Cerca
+  (locale). Elenco virtualizzato, miniature lazy (max 4 in parallelo), nessun video nella lista.
+- **Catalogo statico** `public/cam/cams-v2.json` (circa 4.800 camere, nessun URL: solo
+  riferimenti validati e ricostruiti su host in allowlist HTTPS), generato a mano con
+  `npm run cams`; gli stream LIVE entrano solo se verificati attivi durante la generazione.
+- **LIVE** (vero video HLS): Caltrans (California), Iowa DOT (CC BY 4.0), INGV – Osservatorio
+  Etneo Etna ed Eolie (CC BY 4.0, doi:10.13127/etna/tvchn, doi:10.13127/aeolian/tvchn) e
+  CNR-ISMAR Venezia (CC BY 4.0), entrambi via GARR.tv.
+- **SNAP** (immagini periodiche): TfL JamCams, Fintraffic Digitraffic, Hong Kong TD.
+- **Player LIVE**: parte solo su "GUARDA IN DIRETTA", un solo stream alla volta, HLS nativo su
+  Safari/iOS e hls.js (Apache-2.0, caricato solo al tap) altrove; stop alla chiusura, a CAM OFF
+  e a pagina nascosta; stop automatico dopo 3 minuti con "Continua LIVE"; vista video
+  espandibile e schermo intero sullo stesso stream.
+- **Mappa 2D e globo 3D**: cluster a griglia (badge a dimensione fissa), piccolo indicatore
+  rosso per le LIVE.
+- **Callout Home** "NEW · 📷 CAM".
+- Attribuzioni e licenze per fonte nella scheda camera; licenza hls.js in `public/licenses/`.
+- Costo €0: nessuna API key, nessun backend, proxy o Worker per CAM.
+- Audit tecnici/legali: `CAM-AUDIT-R1.md`, `CAM-LIVE-AUDIT-R1.md`, `CAM-LIVE-EUROPE-AUDIT-R1.md`.
+
+### Changed — aerei
+
 Traffico aereo reale tramite il gateway EarthRadar (`https://aircraft.alessandropezzali.it`,
 provider FlyItalyADSB, CC BY-SA 4.0). Il browser non conosce il provider né alcuna chiave.
 

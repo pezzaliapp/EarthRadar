@@ -1,0 +1,18 @@
+{
+  "v": 2,
+  "hash": "2ee4ddccf79cee6d",
+  "total": 4792,
+  "kinds": {
+    "live": 2163,
+    "snap": 2629
+  },
+  "counts": {
+    "tfl": 812,
+    "digitraffic": 806,
+    "hktd": 1011,
+    "caltrans": 1500,
+    "iowa": 658,
+    "ingv": 2,
+    "cnrismar": 3
+  }
+}
