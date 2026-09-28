@@ -134,3 +134,154 @@ describe('setupPreloadErrorReload', () => {
     expect(storage.map.get(CHUNK_RELOAD_KEY)).toBe('42');
   });
 });
+
+// ─── Aggiornamento automatico dietro CDN (release A → B) ─────────────────
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import {
+  RELEASE_CHECK_MIN_GAP_MS,
+  checkForNewRelease,
+  entryOf,
+  isWorkerOfBuild,
+  registerServiceWorker,
+  serviceWorkerUrl,
+  setupReleaseCheck,
+} from './pwaUpdate';
+
+describe('service worker con URL per build', () => {
+  it('ogni build ha il suo URL sw.js?v=<id> (la CDN non può servire quello vecchio)', () => {
+    expect(serviceWorkerUrl('/EarthRadar/', 'buildA')).toBe('/EarthRadar/sw.js?v=buildA');
+    expect(serviceWorkerUrl('/EarthRadar/', 'buildB')).not.toBe(serviceWorkerUrl('/EarthRadar/', 'buildA'));
+    expect(isWorkerOfBuild('https://x.it/EarthRadar/sw.js?v=buildB', 'buildB')).toBe(true);
+    expect(isWorkerOfBuild('https://x.it/EarthRadar/sw.js', 'buildB')).toBe(false);
+    expect(isWorkerOfBuild(undefined, 'buildB')).toBe(false);
+  });
+
+  it('registra il SW della build con scope e updateViaCache "none", a pagina caricata', () => {
+    const register = vi.fn(() => Promise.resolve());
+    const listeners: Record<string, () => void> = {};
+    const win = { addEventListener: (t: string, cb: () => void) => void (listeners[t] = cb) };
+    registerServiceWorker({ serviceWorker: { controller: null, addEventListener: () => {}, register } }, win as never, '/EarthRadar/', 'buildB');
+    expect(register).not.toHaveBeenCalled();
+    listeners.load();
+    expect(register).toHaveBeenCalledWith('/EarthRadar/sw.js?v=buildB', { scope: '/EarthRadar/', updateViaCache: 'none' });
+  });
+
+  it('controllerchange: nessun reload se il nuovo SW è di questa build; reload unico se la pagina è vecchia', () => {
+    const listeners: Array<() => void> = [];
+    const sw = { controller: { scriptURL: 'https://x.it/EarthRadar/sw.js?v=buildA' } as { scriptURL: string }, addEventListener: (_t: 'controllerchange', cb: () => void) => void listeners.push(cb) };
+    const reload = vi.fn();
+    setupServiceWorkerAutoReload({ serviceWorker: sw }, reload, 'buildB'); // pagina B aperta
+    sw.controller = { scriptURL: 'https://x.it/EarthRadar/sw.js?v=buildB' };
+    listeners.forEach((l) => l());
+    expect(reload).not.toHaveBeenCalled(); // pagina e SW già coerenti
+
+    const listeners2: Array<() => void> = [];
+    const sw2 = { controller: { scriptURL: 'https://x.it/EarthRadar/sw.js' } as { scriptURL: string }, addEventListener: (_t: 'controllerchange', cb: () => void) => void listeners2.push(cb) };
+    const reload2 = vi.fn();
+    setupServiceWorkerAutoReload({ serviceWorker: sw2 }, reload2, 'buildA'); // pagina A (vecchia)
+    sw2.controller = { scriptURL: 'https://x.it/EarthRadar/sw.js?v=buildB' };
+    listeners2.forEach((l) => l());
+    listeners2.forEach((l) => l());
+    expect(reload2).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('controllo nuova release (app installata / scheda lasciata aperta)', () => {
+  const html = (entry: string) =>
+    new Response(`<!doctype html><script type="module" crossorigin src="/EarthRadar/assets/${entry}"></script>`, { status: 200 });
+
+  it('stessa release → nessun reload', async () => {
+    const reload = vi.fn();
+    const r = await checkForNewRelease({
+      fetchImpl: vi.fn(async () => html('index-AAA.js')) as unknown as typeof fetch,
+      base: '/EarthRadar/',
+      currentEntry: '/EarthRadar/assets/index-AAA.js',
+      storage: fakeStorage(),
+      reload,
+    });
+    expect(r).toBe('same');
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('nuova release pubblicata → UN reload; subito dopo nessun altro (anti-loop)', async () => {
+    const storage = fakeStorage();
+    const reload = vi.fn();
+    const fetchImpl = vi.fn(async () => html('index-BBB.js')) as unknown as typeof fetch;
+    const deps = { fetchImpl, base: '/EarthRadar/', currentEntry: '/EarthRadar/assets/index-AAA.js', storage, reload };
+    expect(await checkForNewRelease({ ...deps, now: 1_000_000 })).toBe('reloaded');
+    expect(storage.map.get(CHUNK_RELOAD_KEY)).toBe('1000000');
+    expect(await checkForNewRelease({ ...deps, now: 1_000_000 + 1000 })).toBe('suppressed');
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(await checkForNewRelease({ ...deps, now: 1_000_000 + CHUNK_RELOAD_COOLDOWN_MS + 1 })).toBe('reloaded');
+    // La richiesta di controllo evita ogni cache (query unica + no-store).
+    expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatch(/^\/EarthRadar\/index\.html\?release-check=\d+$/);
+    expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ cache: 'no-store' });
+  });
+
+  it('offline / errore → nessun reload, si continua con la versione disponibile', async () => {
+    const reload = vi.fn();
+    const r = await checkForNewRelease({
+      fetchImpl: vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }) as unknown as typeof fetch,
+      base: '/EarthRadar/',
+      currentEntry: '/EarthRadar/assets/index-AAA.js',
+      storage: fakeStorage(),
+      reload,
+    });
+    expect(r).toBe('unknown');
+    expect(reload).not.toHaveBeenCalled();
+    expect(entryOf('<script src="/EarthRadar/assets/index-C5YAMen9.js">')).toBe('assets/index-C5YAMen9.js');
+  });
+
+  it('controlli al ritorno in primo piano / rete tornata, con distanza minima (niente raffiche)', () => {
+    const listeners: Record<string, () => void> = {};
+    const win = {
+      addEventListener: (t: string, cb: () => void) => void (listeners[`w:${t}`] = cb),
+      setInterval: vi.fn(),
+    };
+    let visibility: DocumentVisibilityState = 'visible';
+    const doc = {
+      addEventListener: (t: string, cb: () => void) => void (listeners[`d:${t}`] = cb),
+      get visibilityState() {
+        return visibility;
+      },
+    };
+    let now = 0;
+    const check = vi.fn(async () => {});
+    setupReleaseCheck(win as never, doc as never, check, () => now);
+    now = 60_000;
+    listeners['d:visibilitychange'](); // troppo presto dopo il caricamento
+    expect(check).not.toHaveBeenCalled();
+    now = RELEASE_CHECK_MIN_GAP_MS + 1;
+    visibility = 'hidden';
+    listeners['d:visibilitychange'](); // nascosta: niente
+    expect(check).not.toHaveBeenCalled();
+    visibility = 'visible';
+    listeners['d:visibilitychange'](); // di nuovo visibile dopo il gap → controllo
+    expect(check).toHaveBeenCalledTimes(1);
+    listeners['w:online']();
+    expect(check).toHaveBeenCalledTimes(1); // entro il gap
+    now += RELEASE_CHECK_MIN_GAP_MS + 1;
+    listeners['w:online'](); // rete tornata dopo il gap → controllo
+    expect(check).toHaveBeenCalledTimes(2);
+    expect(win.setInterval).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('sentinella configurazione PWA (regressione "bloccato sulla release precedente")', () => {
+  const cfg = readFileSync(path.resolve(__dirname, '../../vite.config.ts'), 'utf8');
+  it('app shell dalla rete, non dalla precache; registrazione dal bundle; attivazione immediata', () => {
+    expect(cfg).toMatch(/injectRegister:\s*false/);
+    expect(cfg).toMatch(/navigateFallback:\s*null/);
+    expect(cfg).toMatch(/directoryIndex:\s*null/);
+    expect(cfg).toMatch(/skipWaiting:\s*true/);
+    expect(cfg).toMatch(/clientsClaim:\s*true/);
+    expect(cfg).toMatch(/request\.mode === 'navigate'[\s\S]{0,200}handler:\s*'NetworkOnly'/);
+    expect(cfg).toMatch(/precacheFallback:\s*\{\s*fallbackURL:\s*'\/EarthRadar\/index\.html'/);
+    expect(cfg).toMatch(/VITE_BUILD_ID/);
+    // Il catalogo CAM resta NetworkFirst (nessuna regressione della cache versionata).
+    expect(cfg).toMatch(/cacheName:\s*'cam-catalog'/);
+  });
+});
