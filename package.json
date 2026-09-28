@@ -1,7 +1,7 @@
 {
   "name": "earthradar",
   "private": true,
-  "version": "1.2.4",
+  "version": "1.3.0",
   "type": "module",
   "description": "EarthRadar — La Terra dallo spazio in tempo reale. PWA con layer USGS, NASA, OpenSky, Open-Meteo. Sister app di MeteorWatch e CubeSat Constellation.",
   "author": "Alessandro Pezzali <pezzalialessandro@gmail.com>",
@@ -21,10 +21,12 @@
     "test:watch": "vitest",
     "icons": "node scripts/generateIcons.mjs",
     "baseline": "node scripts/generateSeismicBaseline.mjs",
+    "cams": "node scripts/buildCamCatalog.mjs",
     "deploy": "git push origin main"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
+    "hls.js": "^1.7.3",
     "idb-keyval": "^6.2.1",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",

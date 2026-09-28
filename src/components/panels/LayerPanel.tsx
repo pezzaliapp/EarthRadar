@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { useTranslation } from '@/i18n';
 import { useLayersStore, type LayerId } from '@/store/layersStore';
 import {
@@ -10,6 +11,9 @@ import { BASE_LAYER_OPTIONS } from '@/components/maps/baseLayerOptions';
 import { GROUP_CATALOG, type CelestrakGroup } from '@/services/celestrakGroups';
 import { EONET_CATEGORIES } from '@/services/eonetCategories';
 import { firmsMapKey, type FirmsDayRange, type FirmsSource } from '@/services/firmsApi';
+
+// CAM: dettaglio (catalogo, fonti, attribuzioni) in un chunk lazy, montato solo con CAM ON.
+const CamSourcesInfo = lazy(() => import('./CamSourcesInfo'));
 
 const GROUP_LABEL_KEY: Record<CelestrakGroup, string> = {
   stations: 'satellites.groupStations',
@@ -96,6 +100,7 @@ export default function LayerPanel({ className = '' }: Props) {
         <EonetRow />
         <FiresRow />
         <LightningRow />
+        <CamRow />
         <ToggleRow
           id="terminator"
           label={`🌑 ${t('layers.terminator')}`}
@@ -653,6 +658,32 @@ function IssRow() {
           </label>
           <p className="text-[10px] text-space-300">{t('iss.attribution')}.</p>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Riga "Webcam (CAM)": OFF di default e a ogni avvio; dettagli solo quando attiva. */
+function CamRow() {
+  const { t } = useTranslation();
+  const enabled = useLayersStore((s) => s.overlays.cam?.enabled ?? false);
+  const setCamEnabled = useLayersStore((s) => s.setCamEnabled);
+  return (
+    <div className="rounded-lg border border-space-500/30 bg-space-800/40 p-2">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setCamEnabled(e.target.checked)}
+          className="h-4 w-4 accent-cyan-glow"
+        />
+        <span className="flex-1 text-[12px] text-space-50">📷 {t('cam.title')}</span>
+      </label>
+      <p className="mt-1 pl-6 text-[10px] leading-snug text-space-300">{t('cam.subtitle')}</p>
+      {enabled && (
+        <Suspense fallback={null}>
+          <CamSourcesInfo />
+        </Suspense>
       )}
     </div>
   );

@@ -56,7 +56,11 @@ export default defineConfig({
         // (three + react-globe.gl + globe.gl) e l'utente 2D non deve pagarlo
         // all'install. Quando l'utente clicca "Globo 3D" il chunk viene
         // scaricato on-demand e poi caduto in runtime cache via SW.
-        globIgnores: ['**/Globe3D-*.js'],
+        // Catalogo CAM (`cam/*.json`) escluso dal precache: si scarica solo
+        // quando l'utente accende il layer CAM (CAM OFF = zero traffico CAM).
+        // hls.js (player LIVE) escluso dal precache: si scarica solo al primo
+        // "GUARDA IN DIRETTA" su browser senza HLS nativo (CAM OFF = zero hls.js).
+        globIgnores: ['**/Globe3D-*.js', '**/cam/**', '**/hls.light-*.js'],
         navigateFallback: '/EarthRadar/index.html',
         navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
         // Pre-cache budget bumped because of three.js + leaflet + globe textures.
@@ -158,6 +162,28 @@ export default defineConfig({
               expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
+          },
+          // CAM: catalogo statico same-origin, solo dopo l'attivazione del layer.
+          // NetworkFirst: online arriva sempre la versione pubblicata (nessuna
+          // copia vecchia servita per prima); offline si usa l'ultima salvata.
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname.startsWith('/EarthRadar/cam/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'cam-catalog',
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          // CAM: immagini e poster delle fonti ufficiali MAI nella cache PWA.
+          // Gli stream video LIVE (wzmedia.dot.ca.gov, videoN.iowadot.gov:8888)
+          // non hanno alcuna route: il Service Worker non li tocca né li salva.
+          {
+            urlPattern:
+              /^https:\/\/(?:s3-eu-west-1\.amazonaws\.com\/jamcams\.tfl\.gov\.uk|weathercam\.digitraffic\.fi|tdcctv\.data\.one\.gov\.hk|cwwp2\.dot\.ca\.gov\/data\/d\d+\/cctv\/image|atmsqf\.iowadot\.gov)\//,
+            handler: 'NetworkOnly',
           },
           {
             urlPattern: /^https:\/\/[a-z0-9.-]*\/(?:fallback-data)\//,
