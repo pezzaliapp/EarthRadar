@@ -16,12 +16,13 @@ const snap = (fetchedAt: number, body = `b${fetchedAt}`): Snapshot => ({
   body,
   fetchedAt,
   count: 0,
+  ttlS: 30,
 });
 
 describe('SnapshotMemoryCache', () => {
   it('conserva la voce fino a fetchedAt + retain, calcolato su fetchedAt', () => {
     let now = 1_000;
-    const cache = new SnapshotMemoryCache({ retainMs: 150_000, maxEntries: 10, now: () => now });
+    const cache = new SnapshotMemoryCache({ staleMs: 120_000, maxEntries: 10, now: () => now });
     // Arrivata dalla Cache API già vecchia di 100 s: non ringiovanisce.
     cache.set('k', snap(now - 100_000));
     now += 50_000;
@@ -32,14 +33,14 @@ describe('SnapshotMemoryCache', () => {
   });
 
   it('mantiene sempre la fotografia più recente', () => {
-    const cache = new SnapshotMemoryCache({ retainMs: 150_000, maxEntries: 10, now: () => 10 });
+    const cache = new SnapshotMemoryCache({ staleMs: 120_000, maxEntries: 10, now: () => 10 });
     cache.set('k', snap(5, 'nuova'));
     cache.set('k', snap(3, 'vecchia'));
     expect(cache.get('k')?.body).toBe('nuova');
   });
 
   it('rispetta maxEntries eliminando le voci più vecchie', () => {
-    const cache = new SnapshotMemoryCache({ retainMs: 150_000, maxEntries: 2, now: () => 10 });
+    const cache = new SnapshotMemoryCache({ staleMs: 120_000, maxEntries: 2, now: () => 10 });
     cache.set('a', snap(1));
     cache.set('b', snap(2));
     cache.set('c', snap(3));

@@ -1,5 +1,9 @@
 # EarthRadar — aircraft gateway (Cloudflare Workers, piano Free).
-# Nessun binding a pagamento: niente KV, D1, Durable Objects, R2.
+# Nessun binding a pagamento: niente KV, D1, R2. Unico binding: il Durable
+# Object UPSTREAM_BUDGET con backend SQLite (`new_sqlite_classes`), incluso nel
+# piano Workers Free (il backend key-value richiederebbe il piano Paid). Sul
+# piano Free, oltre le quote gratuite le operazioni falliscono senza addebiti
+# e il gateway, senza permesso, non chiama il provider.
 #
 # Servito SOLO dal Custom Domain aircraft.alessandropezzali.it (zona DNS su
 # Cloudflare): lì la Cache API (caches.default) è attiva e condivisa fra gli
@@ -20,3 +24,13 @@ routes = [{ pattern = "aircraft.alessandropezzali.it", custom_domain = true }]
 # Origini autorizzate (CORS allowlist), separate da virgola.
 ALLOWED_ORIGINS = "https://www.alessandropezzali.it,https://pezzaliapp.github.io,http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
 UPSTREAM_BASE_URL = "https://api.flyitalyadsb.com/v2"
+
+# Budget GLOBALE della chiave FlyItalyADSB: un'unica istanza (idFromName)
+# concede ogni chiamata upstream (24/min, 9.500 per 24 h, 285.000 per 30 giorni).
+[[durable_objects.bindings]]
+name = "UPSTREAM_BUDGET"
+class_name = "UpstreamBudgetObject"
+
+[[migrations]]
+tag = "v1-upstream-budget"
+new_sqlite_classes = ["UpstreamBudgetObject"]

@@ -39,8 +39,18 @@ export interface ProviderFetchResult {
   normalizeMs: number;
 }
 
+export interface FetchAreaHooks {
+  /**
+   * Chiamato subito prima della richiesta HTTP, dopo i controlli locali
+   * (chiave presente, area valida). Se lancia, la richiesta non parte e
+   * l'errore si propaga così com'è: qui il gateway chiede il permesso al
+   * budget globale.
+   */
+  beforeSend?: () => Promise<void>;
+}
+
 /** Interfaccia che ogni provider deve rispettare: sostituibile senza toccare il frontend. */
 export interface AircraftProvider {
   readonly info: ProviderInfo;
-  fetchArea(area: Area): Promise<ProviderFetchResult>;
+  fetchArea(area: Area, hooks?: FetchAreaHooks): Promise<ProviderFetchResult>;
 }

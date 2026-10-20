@@ -86,7 +86,11 @@ export type GatewayReason =
   /** Chiave del provider non configurata nel Worker: nessuna chiamata effettuata. */
   | 'provider_not_configured'
   /** Troppe richieste upstream in coda nel gateway: nessuna chiamata effettuata. */
-  | 'gateway_busy';
+  | 'gateway_busy'
+  /** Budget globale della chiave (minuto, giorno, 30 giorni o pausa dopo 429): nessuna chiamata. */
+  | 'upstream_budget'
+  /** Budget globale irraggiungibile: per prudenza nessuna chiamata upstream. */
+  | 'budget_unavailable';
 
 /**
  * Esito cache, solo nell'header `X-EarthRadar-Cache` (il corpo è condiviso

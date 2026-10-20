@@ -1,7 +1,21 @@
 import { areaCacheKey, parseAreaParams } from './area.ts';
-import { classifyUpstreamError, CircuitBreaker, type OpenCircuit } from './breaker.ts';
+import {
+  classifyUpstreamError,
+  CircuitBreaker,
+  type OpenCircuit,
+  type UpstreamFailure,
+} from './breaker.ts';
+import {
+  BudgetDeniedError,
+  BudgetUnavailableError,
+  type BudgetGrant,
+  type UpstreamBudget,
+} from './budget/client.ts';
+import type { BudgetUsage, DenyScope } from './budget/ledger.ts';
 import { Coalescer, SnapshotMemoryCache, type Snapshot } from './cache.ts';
 import {
+  BREAKER_MS,
+  BUDGET_DENIED_PAUSE_MS,
   CACHE_FRESH_TTL_S,
   CACHE_MAX_ENTRIES,
   CACHE_STALE_S,
@@ -37,6 +51,11 @@ export interface WaitUntilContext {
 
 export interface GatewayDeps {
   provider: AircraftProvider;
+  /**
+   * Budget globale della chiave (Durable Object). Obbligatorio: senza
+   * permesso il gateway non chiama mai il provider.
+   */
+  budget: UpstreamBudget;
   allowedOrigins: ReadonlySet<string>;
   /** `caches.default` in produzione; null se non disponibile (test, Node). */
   edgeStore?: EdgeCacheStore | null;
@@ -56,6 +75,15 @@ interface LastUpstream {
   upstreamMs: number | null;
   upstreamBytes: number | null;
   count: number | null;
+}
+
+/** Ultima risposta del budget vista da questo isolate (solo per /v1/health). */
+interface LastBudget {
+  at: number;
+  result: 'granted' | 'denied' | 'unavailable';
+  scope: DenyScope | null;
+  ttlS: number | null;
+  usage: BudgetUsage | null;
 }
 
 interface Failure {
@@ -93,11 +121,10 @@ export function createGateway(deps: GatewayDeps): Gateway {
   const sleep = deps.sleep ?? defaultSleep;
   const freshTtlS = deps.freshTtlS ?? CACHE_FRESH_TTL_S;
   const staleS = deps.staleS ?? CACHE_STALE_S;
-  const freshMs = freshTtlS * 1000;
   const info = deps.provider.info;
 
   const memory = new SnapshotMemoryCache({
-    retainMs: (freshTtlS + staleS) * 1000,
+    staleMs: staleS * 1000,
     maxEntries: CACHE_MAX_ENTRIES,
     now,
   });
@@ -106,7 +133,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
     keyOrigin: deps.edgeKeyOrigin ?? EDGE_CACHE_KEY_ORIGIN,
     keyPrefix: EDGE_CACHE_KEY_PREFIX,
     providerId: info.id,
-    retainS: freshTtlS + staleS,
+    staleS,
     now,
   });
   const coalescer = new Coalescer<LoadResult>();
@@ -119,8 +146,9 @@ export function createGateway(deps: GatewayDeps): Gateway {
       now,
     });
   let lastUpstream: LastUpstream | null = null;
+  let lastBudget: LastBudget | null = null;
 
-  const isFresh = (s: Snapshot) => now() - s.fetchedAt < freshMs;
+  const isFresh = (s: Snapshot) => now() - s.fetchedAt < s.ttlS * 1000;
   const newest = (a: Snapshot | null, b: Snapshot | null) =>
     !a ? b : !b ? a : a.fetchedAt >= b.fetchedAt ? a : b;
   const secondsUntil = (ms: number) => Math.max(1, Math.ceil(ms / 1000));
@@ -141,7 +169,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
     return { v: 1, error, message, ...extra };
   }
 
-  function buildSnapshot(area: Area, value: ProviderFetchResult): Snapshot {
+  function buildSnapshot(area: Area, value: ProviderFetchResult, ttlS: number): Snapshot {
     const fetchedAt = now();
     const body: AircraftResponse = {
       v: 1,
@@ -151,13 +179,13 @@ export function createGateway(deps: GatewayDeps): Gateway {
       area,
       providerTime: value.providerTime,
       fetchedAt,
-      ttlS: freshTtlS,
+      ttlS,
       retryAfterS: null,
       count: value.aircraft.length,
       stats: value.stats,
       aircraft: value.aircraft,
     };
-    return { body: JSON.stringify(body), fetchedAt, count: value.aircraft.length };
+    return { body: JSON.stringify(body), fetchedAt, count: value.aircraft.length, ttlS };
   }
 
   /** Il corpo è servito byte per byte: le informazioni per richiesta stanno negli header. */
@@ -172,7 +200,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
       ...BASE_HEADERS,
       ...corsHeaders(cors),
       // Standard HTTP: il browser considera la risposta fresca per max-age − Age.
-      'Cache-Control': stale ? 'no-store' : `public, max-age=${freshTtlS}`,
+      'Cache-Control': stale ? 'no-store' : `public, max-age=${snapshot.ttlS}`,
       Age: String(ageS),
       'X-EarthRadar-Cache': outcome,
     };
@@ -277,10 +305,27 @@ export function createGateway(deps: GatewayDeps): Gateway {
       return { kind: 'failure', failure: busy };
     }
 
-    // 4. Chiamata upstream.
+    // 4. Chiamata upstream, solo con il permesso del budget globale. Il
+    //    permesso si chiede dopo l'attesa del throttle, subito prima
+    //    dell'invio: l'istante concesso coincide con quello della richiesta.
+    let grant: BudgetGrant | null = null;
     try {
-      const value = await throttle.run(() => deps.provider.fetchArea(area));
-      const snapshot = buildSnapshot(area, value);
+      const value = await throttle.run(() =>
+        deps.provider.fetchArea(area, {
+          beforeSend: async () => {
+            grant = await deps.budget.acquire();
+            lastBudget = {
+              at: now(),
+              result: 'granted',
+              scope: null,
+              ttlS: grant.ttlS,
+              usage: grant.usage,
+            };
+          },
+        }),
+      );
+      const ttlS = (grant as BudgetGrant | null)?.ttlS ?? freshTtlS;
+      const snapshot = buildSnapshot(area, value, ttlS);
       memory.set(key, snapshot);
       const put = edge.putSnapshot(key, snapshot);
       if (ctx) ctx.waitUntil(put);
@@ -305,14 +350,45 @@ export function createGateway(deps: GatewayDeps): Gateway {
           retryAfterS: secondsUntil(err.retryAfterMs),
         });
       }
+      if (err instanceof BudgetDeniedError || err instanceof BudgetUnavailableError) {
+        // Nessuna chiamata upstream fatta. Pausa condivisa nel data center:
+        // gli altri isolate non interrogano il budget fino alla scadenza.
+        const denied = err instanceof BudgetDeniedError;
+        const pauseMs = denied
+          ? Math.min(
+              BUDGET_DENIED_PAUSE_MS.max,
+              Math.max(BUDGET_DENIED_PAUSE_MS.min, err.retryAfterMs),
+            )
+          : BREAKER_MS.budgetUnavailable;
+        const failure: UpstreamFailure = {
+          httpStatus: 503,
+          status: denied ? 'rate_limited' : 'unavailable',
+          reason: denied ? 'upstream_budget' : 'budget_unavailable',
+          pauseMs,
+        };
+        lastBudget = {
+          at: now(),
+          result: denied ? 'denied' : 'unavailable',
+          scope: denied ? err.scope : null,
+          ttlS: null,
+          usage: denied ? err.usage : null,
+        };
+        await tripBreaker(failure, ctx);
+        return staleOr(stale, {
+          httpStatus: failure.httpStatus,
+          status: failure.status,
+          reason: failure.reason,
+          retryAfterS: secondsUntil(pauseMs),
+        });
+      }
       if (!(err instanceof UpstreamError)) throw err;
       const failure = classifyUpstreamError(err);
-      breaker.trip(failure);
-      const tripped = breaker.current();
-      if (tripped) {
-        const put = edge.putBreaker(tripped);
-        if (ctx) ctx.waitUntil(put);
-        else await put;
+      await tripBreaker(failure, ctx);
+      if (err.kind === 'rate_limited') {
+        // 429 = quota della chiave: pausa per tutti i data center. Best-effort.
+        const report = deps.budget.reportRateLimited(failure.pauseMs).catch(() => undefined);
+        if (ctx) ctx.waitUntil(report);
+        else await report;
       }
       lastUpstream = {
         ok: false,
@@ -330,6 +406,15 @@ export function createGateway(deps: GatewayDeps): Gateway {
         retryAfterS: secondsUntil(failure.pauseMs),
       });
     }
+  }
+
+  async function tripBreaker(failure: UpstreamFailure, ctx?: WaitUntilContext): Promise<void> {
+    breaker.trip(failure);
+    const tripped = breaker.current();
+    if (!tripped) return;
+    const put = edge.putBreaker(tripped);
+    if (ctx) ctx.waitUntil(put);
+    else await put;
   }
 
   async function handleAircraft(url: URL, cors: CorsDecision, ctx?: WaitUntilContext) {
@@ -381,6 +466,9 @@ export function createGateway(deps: GatewayDeps): Gateway {
             }
           : { open: false },
         lastUpstream,
+        // Ultima risposta del budget globale vista da questo isolate: /v1/health
+        // non interroga il Durable Object (non consuma le sue quote).
+        lastBudget,
         cache: {
           ttlS: freshTtlS,
           staleS,

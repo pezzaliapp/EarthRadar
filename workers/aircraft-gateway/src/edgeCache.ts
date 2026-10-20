@@ -1,4 +1,5 @@
 import type { OpenCircuit } from './breaker.ts';
+import { CACHE_FRESH_TTL_S } from './config.ts';
 import type { Snapshot } from './cache.ts';
 import type { GatewayReason, GatewayStatus } from './types.ts';
 
@@ -35,14 +36,15 @@ export interface EdgeCacheOptions {
   keyOrigin: string;
   keyPrefix: string;
   providerId: string;
-  /** Vita della fotografia nella Cache API (freschezza + finestra stale). */
-  retainS: number;
+  /** Finestra stale oltre la freschezza della fotografia (s). */
+  staleS: number;
   now?: () => number;
   onError?: (op: string, err: unknown) => void;
 }
 
 const FETCHED_AT_HEADER = 'X-EarthRadar-Fetched-At';
 const COUNT_HEADER = 'X-EarthRadar-Count';
+const TTL_HEADER = 'X-EarthRadar-Ttl';
 
 const STATUSES: ReadonlySet<string> = new Set(['unavailable', 'rate_limited']);
 const REASONS: ReadonlySet<string> = new Set([
@@ -54,12 +56,14 @@ const REASONS: ReadonlySet<string> = new Set([
   'upstream_invalid',
   'provider_not_configured',
   'gateway_busy',
+  'upstream_budget',
+  'budget_unavailable',
 ]);
 
 export class EdgeCache {
   private readonly store: EdgeCacheStore | null;
   private readonly base: string;
-  private readonly retainS: number;
+  private readonly staleS: number;
   private readonly now: () => number;
   private readonly onError: (op: string, err: unknown) => void;
 
@@ -67,7 +71,7 @@ export class EdgeCache {
     this.store = opts.store;
     const prefix = opts.keyPrefix.replace(/\/+$/, '');
     this.base = `${opts.keyOrigin.replace(/\/+$/, '')}${prefix}/${encodeURIComponent(opts.providerId)}`;
-    this.retainS = opts.retainS;
+    this.staleS = opts.staleS;
     this.now = opts.now ?? (() => Date.now());
     this.onError = opts.onError ?? ((op, err) => console.warn(`edge cache ${op} failed`, err));
   }
@@ -94,17 +98,25 @@ export class EdgeCache {
     if (!res) return null;
     const fetchedAt = Number(res.headers.get(FETCHED_AT_HEADER));
     const count = Number(res.headers.get(COUNT_HEADER));
-    if (!Number.isFinite(fetchedAt) || fetchedAt <= 0 || !Number.isFinite(count)) {
+    // Fotografie scritte prima della freschezza adattiva: 30 s.
+    const ttlS = Number(res.headers.get(TTL_HEADER) ?? CACHE_FRESH_TTL_S);
+    if (
+      !Number.isFinite(fetchedAt) ||
+      fetchedAt <= 0 ||
+      !Number.isFinite(count) ||
+      !Number.isFinite(ttlS) ||
+      ttlS <= 0
+    ) {
       await res.body?.cancel();
       return null;
     }
     // Scaduta per il nostro orologio (la Cache API può restituirla per qualche istante in più).
-    if (this.now() - fetchedAt > this.retainS * 1000) {
+    if (this.now() - fetchedAt > (ttlS + this.staleS) * 1000) {
       await res.body?.cancel();
       return null;
     }
     try {
-      return { body: await res.text(), fetchedAt, count };
+      return { body: await res.text(), fetchedAt, count, ttlS };
     } catch (err) {
       this.onError('read snapshot', err);
       return null;
@@ -118,9 +130,10 @@ export class EdgeCache {
       new Response(snapshot.body, {
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': `public, max-age=${this.retainS}`,
+          'Cache-Control': `public, max-age=${snapshot.ttlS + this.staleS}`,
           [FETCHED_AT_HEADER]: String(snapshot.fetchedAt),
           [COUNT_HEADER]: String(snapshot.count),
+          [TTL_HEADER]: String(snapshot.ttlS),
         },
       }),
     );

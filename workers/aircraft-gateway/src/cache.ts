@@ -14,23 +14,25 @@ export interface Snapshot {
   /** Quando il gateway ha ottenuto i dati dal provider (ms epoch). */
   fetchedAt: number;
   count: number;
+  /** Freschezza di QUESTA fotografia (s): 30 di norma, di più solo vicino ai limiti. */
+  ttlS: number;
 }
 
 export interface MemoryCacheOptions {
-  /** Oltre `fetchedAt + retainMs` la voce è eliminata (freschezza + finestra stale). */
-  retainMs: number;
+  /** Oltre `fetchedAt + ttlS + staleMs` la voce è eliminata (freschezza + finestra stale). */
+  staleMs: number;
   maxEntries: number;
   now?: () => number;
 }
 
 export class SnapshotMemoryCache {
   private readonly entries = new Map<string, Snapshot>();
-  private readonly retainMs: number;
+  private readonly staleMs: number;
   private readonly maxEntries: number;
   private readonly now: () => number;
 
   constructor(opts: MemoryCacheOptions) {
-    this.retainMs = opts.retainMs;
+    this.staleMs = opts.staleMs;
     this.maxEntries = Math.max(1, opts.maxEntries);
     this.now = opts.now ?? (() => Date.now());
   }
@@ -42,7 +44,7 @@ export class SnapshotMemoryCache {
   get(key: string): Snapshot | null {
     const s = this.entries.get(key);
     if (!s) return null;
-    if (this.now() - s.fetchedAt > this.retainMs) {
+    if (this.expired(s, this.now())) {
       this.entries.delete(key);
       return null;
     }
@@ -58,9 +60,13 @@ export class SnapshotMemoryCache {
     this.entries.set(key, snapshot);
     // Map conserva l'ordine d'inserimento: le prime voci sono le più vecchie.
     for (const [k, s] of this.entries) {
-      if (this.entries.size <= this.maxEntries && now - s.fetchedAt <= this.retainMs) break;
+      if (this.entries.size <= this.maxEntries && !this.expired(s, now)) break;
       this.entries.delete(k);
     }
+  }
+
+  private expired(s: Snapshot, now: number): boolean {
+    return now - s.fetchedAt > s.ttlS * 1000 + this.staleMs;
   }
 
   clear(): void {

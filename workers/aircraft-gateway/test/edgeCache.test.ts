@@ -11,7 +11,7 @@ function setup() {
     keyOrigin: 'https://aircraft.alessandropezzali.it/',
     keyPrefix: '/__cache/v2/',
     providerId: 'flyitalyadsb',
-    retainS: 150,
+    staleS: 120,
     now: () => now,
   });
   return { edge, store, advance: (ms: number) => (now += ms), now: () => now };
@@ -33,7 +33,7 @@ describe('EdgeCache', () => {
 
   it('snapshot: round trip e scadenza dopo freschezza + stale', async () => {
     const t = setup();
-    const snap = { body: '{"v":1}', fetchedAt: t.now(), count: 3 };
+    const snap = { body: '{"v":1}', fetchedAt: t.now(), count: 3, ttlS: 30 };
     await t.edge.putSnapshot('k', snap);
     expect(await t.edge.getSnapshot('k')).toEqual(snap);
     t.advance(150_000);
@@ -76,10 +76,10 @@ describe('EdgeCache', () => {
       keyOrigin: 'https://x',
       keyPrefix: '/c',
       providerId: 'p',
-      retainS: 150,
+      staleS: 120,
     });
     expect(edge.enabled).toBe(false);
-    await edge.putSnapshot('k', { body: '', fetchedAt: 1, count: 0 });
+    await edge.putSnapshot('k', { body: '', fetchedAt: 1, count: 0, ttlS: 30 });
     expect(await edge.getSnapshot('k')).toBeNull();
     expect(await edge.tryAcquireRefreshLock('k', 8)).toBe(true);
   });
