@@ -218,6 +218,36 @@ describe('fetchAircraftArea', () => {
     });
   });
 
+  it('budget globale del gateway (0.4.0): esauriti o irraggiungibile → error gestito, mai eccezioni', async () => {
+    for (const [reason, status] of [
+      ['upstream_budget', 'rate_limited'],
+      ['budget_unavailable', 'unavailable'],
+    ] as const) {
+      const r = await fetchAircraftArea(
+        { lat: 45, lon: 9, radiusNm: 150 },
+        {
+          fetchFn: (async () =>
+            json(
+              { v: 1, status, reason, aircraft: [] },
+              { status: 503, headers: { 'Retry-After': '15' } },
+            )) as unknown as typeof fetch,
+        },
+      );
+      expect(r).toEqual({ kind: 'error', httpStatus: 503, reason, retryAfterMs: 15_000 });
+    }
+  });
+
+  it('gateway giù del tutto (500 non JSON, es. Worker in errore) → error gestito', async () => {
+    const r = await fetchAircraftArea(
+      { lat: 45, lon: 9, radiusNm: 150 },
+      {
+        fetchFn: (async () =>
+          new Response('error code: 1027', { status: 500 })) as unknown as typeof fetch,
+      },
+    );
+    expect(r).toMatchObject({ kind: 'error', httpStatus: 500, reason: 'http_error' });
+  });
+
   it('errore di rete → error senza dati', async () => {
     const r = await fetchAircraftArea(
       { lat: 45, lon: 9, radiusNm: 50 },

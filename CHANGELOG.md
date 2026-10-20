@@ -25,6 +25,12 @@ upstream:
 - freschezza adattiva: 30 s invariati in condizioni normali, 60/120 s solo oltre l'80%/95% di
   una quota (il frontend si allinea già a `ttlS`);
 - raggio massimo invariato a 150 NM; nessuna modifica a mappa, globo 3D o Radar Mode.
+- rollback: `wrangler rollback` non attraversa la migrazione del Durable Object; procedura
+  documentata (arresto d'emergenza via secret, rollback fra 0.4.x, branch
+  `rollback/gateway-0.3.1-compat` con classe inerte);
+- quota reale protetta: test con rete bloccata, `npm run dev` contro un provider finto,
+  `npm run measure` solo con conferma esplicita; test `zeroCost` su `wrangler.toml`;
+- vincolo **costo zero** documentato in `CLAUDE.md`.
 
 ## [1.3.0] — 2026-09-28
 

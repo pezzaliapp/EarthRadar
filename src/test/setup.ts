@@ -35,3 +35,25 @@ if (typeof window !== 'undefined' && !('ResizeObserver' in window)) {
     disconnect() {}
   };
 }
+
+// Quota FlyItalyADSB: nessun test deve raggiungere il gateway aerei di
+// produzione (che consuma la chiave reale) né il provider. I test che
+// simulano la rete sostituiscono fetch con un mock e non passano di qui.
+const QUOTA_HOSTS = /(^|\.)aircraft\.alessandropezzali\.it$|(^|\.)flyitalyadsb\.com$/i;
+const realFetch = globalThis.fetch?.bind(globalThis);
+if (realFetch) {
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url;
+    let host = '';
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      // URL relativo: non è il gateway.
+    }
+    if (QUOTA_HOSTS.test(host)) {
+      console.error(`[test] BLOCCATA richiesta reale verso ${host}`);
+      return Promise.reject(new TypeError(`network blocked in tests: ${host}`));
+    }
+    return realFetch(input, init);
+  };
+}

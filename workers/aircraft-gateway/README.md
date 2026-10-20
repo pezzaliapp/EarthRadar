@@ -240,19 +240,48 @@ include `provider.attribution` e `provider.license`, che il frontend deve mostra
 ```bash
 cd workers/aircraft-gateway
 npm install
-npm test          # vitest
-npm run typecheck # tsc --noEmit
-npm run dev       # wrangler dev locale (http://127.0.0.1:8787), nessun login richiesto
-npm run build:dry # bundle senza deploy
-FLYITALYADSB_API_KEY=… npm run measure   # misure reali (6 richieste, distanziate)
+npm test               # vitest — la rete reale è BLOCCATA (test/setup.ts)
+npm run typecheck      # tsc --noEmit
+npm run dev:fake-upstream   # provider FINTO su http://127.0.0.1:8799 (nessuna chiamata reale)
+npm run dev                 # wrangler dev locale contro il provider finto, chiave finta
+npm run build:dry      # bundle senza deploy
+EARTHRADAR_CONFIRM_REAL_QUOTA=6 FLYITALYADSB_API_KEY=… npm run measure   # 6 richieste REALI
 ```
 
-`wrangler dev` usa la Cache API locale di workerd (persistita in `.wrangler/state`): per provare
-la cache senza consumare quota del provider puntare `UPSTREAM_BASE_URL` a un server finto
-(`--var UPSTREAM_BASE_URL:http://127.0.0.1:8799`).
+**Nessun comando di manutenzione consuma la quota reale per sbaglio**:
 
-Il deploy (`npm run deploy`) richiede `wrangler login` sull'account Cloudflare del progetto e
-crea il Custom Domain `aircraft.alessandropezzali.it` (zona DNS già su Cloudflare).
+- `npm test`: provider e Durable Object finti; ogni `fetch` reale fa fallire il test.
+- `npm run dev`: punta al provider finto con una chiave finta. Il secret reale vive solo su
+  Cloudflare e `wrangler dev` locale non lo legge (non esiste `.dev.vars`). Mai
+  `wrangler dev --remote`.
+- `npm run measure`: chiama FlyItalyADSB davvero (6 richieste, **fuori** dal budget di
+  produzione); parte solo con `EARTHRADAR_CONFIRM_REAL_QUOTA=6`.
+- `/v1/health` non chiama né il provider né il Durable Object.
+
+Il deploy (`npm run deploy`) richiede `wrangler login` sull'account Cloudflare del progetto
+(piano **Workers Free**) e usa il Custom Domain `aircraft.alessandropezzali.it`.
+
+## Rollback e arresto d'emergenza
+
+Cloudflare **non consente** `wrangler rollback` verso una versione precedente a un cambio di
+ciclo di vita di una classe Durable Object: dalla 0.4.0 non si torna alla 0.3.0 con
+`wrangler rollback`. Rimuovere la classe richiederebbe `deleted_classes` (cancellazione
+definitiva dei dati): **mai** come rollback. Procedure, dalla più rapida:
+
+1. **Arresto d'emergenza (secondi, nessun deploy di codice)**:
+   `npx wrangler secret delete FLYITALYADSB_API_KEY` → 503 `provider_not_configured`, zero
+   chiamate al provider; si spegne solo il livello aerei. Ripristino:
+   `npx wrangler secret put FLYITALYADSB_API_KEY`.
+2. **Rollback fra versioni 0.4.x** (stessa classe, stessa migrazione): ammesso.
+   `npx wrangler deployments list` → `npx wrangler rollback <version-id>`.
+3. **Ritorno al comportamento 0.3.0**: deploy del branch `rollback/gateway-0.3.1-compat`
+   (codice 0.3.0 + classe `UpstreamBudgetObject` inerte + binding e migrazione identici, stesso
+   tag): nessun cambio di ciclo di vita, nessun dato cancellato, il Durable Object non viene mai
+   invocato. Senza budget globale valgono solo throttle e breaker per isolate (dopo il
+   27/10/2026 possibili 429 dal provider: dati stale, nessun costo).
+   `git switch rollback/gateway-0.3.1-compat && cd workers/aircraft-gateway && npx wrangler deploy`
+4. Per tornare alla 0.4.x dopo il punto 3: deploy normale del branch principale (lo stato
+   SQLite è intatto).
 
 ## Chiamate upstream attese
 

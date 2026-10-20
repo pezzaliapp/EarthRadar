@@ -122,7 +122,7 @@ export class BudgetLedger {
     }
 
     const hour = hourOf(now);
-    const nextRecent = [...this.recent, now];
+    const nextRecent = [...this.recent, now].sort((a, b) => a - b);
     const countInHour = (this.hours.get(hour) ?? 0) + 1;
     // Prima la scrittura durevole: se fallisce, nessun permesso e stato invariato.
     this.opts.store.recordGrant(hour, countInHour, nextRecent);
@@ -154,8 +154,10 @@ export class BudgetLedger {
   usage(now: number): BudgetUsage {
     const hour = hourOf(now);
     return {
-      lastTenSeconds: this.recent.filter((t) => t > now - TEN_S_MS && t <= now).length,
-      lastMinute: this.recent.filter((t) => t > now - MINUTE_MS && t <= now).length,
+      // Nessun limite superiore: se l'orologio tornasse indietro, i permessi
+      // "futuri" restano contati (sempre per eccesso).
+      lastTenSeconds: this.recent.filter((t) => t > now - TEN_S_MS).length,
+      lastMinute: this.recent.filter((t) => t > now - MINUTE_MS).length,
       lastDay: this.sumHours(hour, DAY_HOURS),
       lastThirtyDays: this.sumHours(hour, THIRTY_DAYS_HOURS),
     };
@@ -175,7 +177,8 @@ export class BudgetLedger {
 
   private sumHours(hour: number, span: number): number {
     let sum = 0;
-    for (const [h, n] of this.hours) if (h > hour - span && h <= hour) sum += n;
+    // Anche le ore "future" (orologio tornato indietro): conteggio per eccesso.
+    for (const [h, n] of this.hours) if (h > hour - span) sum += n;
     return sum;
   }
 

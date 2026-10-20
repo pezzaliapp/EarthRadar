@@ -99,8 +99,12 @@ export const MAX_FRESH_TTL_S = 120;
 export const UPSTREAM_BUDGET_OBJECT_NAME = 'flyitalyadsb-global';
 /** Oltre questa attesa il budget è "non disponibile": nessuna chiamata upstream. */
 export const UPSTREAM_BUDGET_TIMEOUT_MS = 3_000;
-/** Pausa locale (breaker) dopo un rifiuto del budget. */
-export const BUDGET_DENIED_PAUSE_MS = { min: 1_000, max: 300_000 } as const;
+/**
+ * Pausa locale (breaker) dopo un rifiuto del budget. Minimo 10 s: anche sotto
+ * abuso ogni data center interroga il Durable Object al più ~6 volte al minuto
+ * per i rifiuti (quota Free: 100.000 richieste/giorno).
+ */
+export const BUDGET_DENIED_PAUSE_MS = { min: 10_000, max: 300_000 } as const;
 
 /** Pausa delle chiamate upstream dopo un errore (circuit breaker, condiviso via Cache API). */
 export const BREAKER_MS = {

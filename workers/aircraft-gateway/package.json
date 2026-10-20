@@ -9,7 +9,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --local --var UPSTREAM_BASE_URL:http://127.0.0.1:8799 --var FLYITALYADSB_API_KEY:local-fake-key-not-real",
+    "dev:fake-upstream": "node scripts/fakeUpstream.ts",
     "deploy": "wrangler deploy",
     "build:dry": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "test": "vitest run",
