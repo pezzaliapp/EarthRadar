@@ -1,5 +1,5 @@
 export const SERVICE_NAME = 'earthradar-aircraft-gateway';
-export const SERVICE_VERSION = '0.3.0';
+export const SERVICE_VERSION = '0.4.0';
 
 /**
  * Raggio massimo ASSOLUTO accettato dal gateway (decisione di progetto).
@@ -21,9 +21,9 @@ export const USER_AGENT = `EarthRadar-aircraft-gateway/${SERVICE_VERSION} (+http
 /**
  * Freschezza di una fotografia di un'area: entro questo intervallo nessuna
  * nuova chiamata upstream per la stessa area (per data center Cloudflare).
- * 30 s: il provider è un servizio gratuito (FlyItalyADSB: 100 richieste/min
- * per IP, e le uscite Cloudflare sono IP condivisi). Meglio dati un po' meno
- * recenti che saturarlo.
+ * 30 s: il provider è un servizio gratuito con quota per chiave (vedi
+ * UPSTREAM_BUDGET). Meglio dati un po' meno recenti che saturarlo. Valore
+ * normale: si allunga solo vicino ai limiti (ADAPTIVE_TTL_STEPS).
  */
 export const CACHE_FRESH_TTL_S = 30;
 
@@ -64,12 +64,47 @@ export const ANON_ID_ROTATE_MS = 60 * 60 * 1000;
 export const ANON_ID_MAX_ENTRIES = 5_000;
 
 /**
- * Distanziamo le chiamate upstream di ogni isolate (≤ ~55/min, sotto il
- * limite FlyItalyADSB di 100/min per IP); oltre `UPSTREAM_MAX_QUEUE` attese
- * rispondiamo "busy".
+ * Distanziamo le chiamate upstream di ogni isolate (freno LOCALE: il limite
+ * globale della chiave è il budget del Durable Object); oltre
+ * `UPSTREAM_MAX_QUEUE` attese rispondiamo "busy".
  */
 export const UPSTREAM_MIN_INTERVAL_MS = 1_100;
 export const UPSTREAM_MAX_QUEUE = 4;
+
+/**
+ * Budget GLOBALE della chiave FlyItalyADSB (Durable Object unico, vedi
+ * budget/ledger.ts). Limiti del provider dal 27/10/2026: 30 richieste/min,
+ * 300.000/mese. Margini: 24/min (e 4 ogni 10 s, contro le raffiche),
+ * 9.500 per 24 h mobili, 285.000 per 30 giorni mobili → qualunque periodo di
+ * 31 giorni ≤ 294.500, comunque si definisca il "mese".
+ */
+export const UPSTREAM_BUDGET = {
+  perTenSeconds: 4,
+  perMinute: 24,
+  perDay: 9_500,
+  perThirtyDays: 285_000,
+} as const;
+
+/**
+ * Freschezza adattiva: solo quando una quota supera l'80% (o il 95%) le
+ * fotografie durano 60 s (o 120 s). Sotto, sempre CACHE_FRESH_TTL_S.
+ */
+export const ADAPTIVE_TTL_STEPS = [
+  { atRatio: 0.8, ttlS: 60 },
+  { atRatio: 0.95, ttlS: 120 },
+] as const;
+export const MAX_FRESH_TTL_S = 120;
+
+/** Nome dell'unica istanza del Durable Object (una per chiave del provider). */
+export const UPSTREAM_BUDGET_OBJECT_NAME = 'flyitalyadsb-global';
+/** Oltre questa attesa il budget è "non disponibile": nessuna chiamata upstream. */
+export const UPSTREAM_BUDGET_TIMEOUT_MS = 3_000;
+/**
+ * Pausa locale (breaker) dopo un rifiuto del budget. Minimo 10 s: anche sotto
+ * abuso ogni data center interroga il Durable Object al più ~6 volte al minuto
+ * per i rifiuti (quota Free: 100.000 richieste/giorno).
+ */
+export const BUDGET_DENIED_PAUSE_MS = { min: 10_000, max: 300_000 } as const;
 
 /** Pausa delle chiamate upstream dopo un errore (circuit breaker, condiviso via Cache API). */
 export const BREAKER_MS = {
@@ -80,4 +115,6 @@ export const BREAKER_MS = {
   http5xx: 30_000,
   http4xx: 60_000,
   transient: 15_000,
+  /** Durable Object del budget irraggiungibile: nessuna chiamata upstream. */
+  budgetUnavailable: 15_000,
 } as const;

@@ -7,5 +7,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],
+    // Blocca ogni fetch reale: i test non devono mai consumare la quota FlyItalyADSB.
+    setupFiles: ['test/setup.ts'],
   },
 });

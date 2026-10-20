@@ -1,15 +1,16 @@
 {
   "name": "earthradar-aircraft-gateway",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
-  "description": "EarthRadar — gateway Cloudflare Worker per il traffico aereo ADS-B (FlyItalyADSB, CC BY-SA 4.0): CORS, validazione, normalizzazione, cache best-effort.",
+  "description": "EarthRadar — gateway Cloudflare Worker per il traffico aereo ADS-B (FlyItalyADSB, CC BY-SA 4.0): CORS, validazione, normalizzazione, cache best-effort, budget globale della chiave (Durable Object SQLite).",
   "license": "MIT",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --local --var UPSTREAM_BASE_URL:http://127.0.0.1:8799 --var FLYITALYADSB_API_KEY:local-fake-key-not-real",
+    "dev:fake-upstream": "node scripts/fakeUpstream.ts",
     "deploy": "wrangler deploy",
     "build:dry": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "test": "vitest run",

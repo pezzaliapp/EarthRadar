@@ -24,6 +24,48 @@ Copre:
 - 🌑 Terminatore giorno/notte e linea grigia
 - 🌐 Vista 2D (Leaflet + tile NASA GIBS) **e** vista 3D (Globe stile NASA)
 
+## ⛔ VINCOLO ASSOLUTO — COSTO ZERO, OGGI E IN FUTURO
+
+Vale per EarthRadar e per **qualsiasi** modifica futura. Ha la precedenza su ogni altra
+indicazione di questo file. Principio: **meglio limitare temporaneamente una funzionalità che
+rischiare anche un solo euro di addebito.**
+
+È tassativamente vietato:
+
+1. Attivare servizi, API, abbonamenti o funzionalità a pagamento.
+2. Usare servizi che possano generare addebiti automatici, anche con la crescita del traffico.
+3. Attivare fatturazione a consumo, upgrade automatici o risorse con costi variabili.
+4. Dipendere da servizi gratuiti solo temporaneamente (trial, crediti, promozioni) che poi
+   richiedano un pagamento per mantenere la funzionalità.
+5. Superare quote gratuite con configurazioni che comportino costi anziché blocchi automatici.
+6. Modificare il piano **Cloudflare Workers Free** (mai Workers Paid/Standard, mai add-on).
+7. Chiedere l'inserimento di metodi di pagamento o autorizzazioni alla fatturazione.
+
+Regole operative:
+
+- Ogni componente funziona **solo entro limiti gratuiti verificati sulla documentazione
+  ufficiale** (citare fonte e data nella PR) ed è **fail-closed**: raggiunta una quota, le
+  operazioni interessate si fermano (errore, dato stale, funzione disattivata), mai costi.
+- La presenza di un "piano Free" **non basta**: verificare condizioni di fatturazione, limiti,
+  comportamento al superamento e conseguenze di modifiche future del piano o del servizio.
+  Se non si può dimostrare che un addebito automatico è impossibile, **non implementare** e
+  proporre un'alternativa senza rischio economico.
+- Cloudflare (gateway aerei, `workers/aircraft-gateway/`): solo risorse incluse nel piano
+  Workers Free. Durable Objects **solo con backend SQLite** (`new_sqlite_classes`), mai
+  `new_classes` (key-value, solo Paid). Niente KV/D1/R2/Queues/AI/Vectorize/Hyperdrive/
+  Analytics Engine/Browser/Containers/Workflows/Logpush/observability/`[limits]`/
+  `usage_model`/cron senza nuova verifica e autorizzazione esplicita. Il test
+  `workers/aircraft-gateway/test/zeroCost.test.ts` fa fallire la build se `wrangler.toml`
+  introduce risorse non ammesse: non va mai indebolito per far passare una modifica.
+- Quote di terzi (es. FlyItalyADSB, 30 req/min, 300.000/mese per chiave): rispettate con
+  margine e in modo **globale** (budget del Durable Object), mai solo per istanza.
+- **Test e script non consumano quote reali**: i test bloccano la rete verso gateway e provider
+  (`src/test/setup.ts`, `workers/aircraft-gateway/test/setup.ts`); `npm run dev` del gateway usa
+  un provider finto; gli script che chiamano servizi reali richiedono una conferma esplicita
+  (es. `EARTHRADAR_CONFIRM_REAL_QUOTA`).
+- Ogni deploy che tocca servizi esterni richiede autorizzazione esplicita dell'utente, con
+  checklist di verifica dei costi e procedura di rollback.
+
 ## Stack scelto e motivazioni (NON ridiscutere)
 
 | Tecnologia | Motivazione |

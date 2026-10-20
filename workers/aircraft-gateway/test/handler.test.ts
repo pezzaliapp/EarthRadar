@@ -7,6 +7,8 @@ import { createFlyItalyAdsbProvider, FLY_ITALY_ADSB_INFO } from '../src/provider
 import { UpstreamThrottle } from '../src/throttle.ts';
 import worker from '../src/index.ts';
 import type { AircraftResponse } from '../src/types.ts';
+import type { UpstreamBudget } from '../src/budget/client.ts';
+import { unlimitedBudget } from './budgetHarness.ts';
 import { FakeEdgeStore } from './fakeEdgeStore.ts';
 import fixture from './fixtures/readsb-point.json';
 
@@ -30,6 +32,8 @@ interface SetupOptions {
   store?: EdgeCacheStore | null;
   fetchImpl?: (url: string) => Promise<Response>;
   apiKey?: string | null;
+  /** Default: budget senza limiti (i test del budget sono in budgetGateway.test.ts). */
+  budget?: UpstreamBudget;
 }
 
 function okResponse() {
@@ -49,6 +53,7 @@ function setup(opts: SetupOptions = {}) {
       fetchFn: fetchFn as unknown as typeof fetch,
       now,
     }),
+    budget: opts.budget ?? unlimitedBudget(),
     allowedOrigins: parseAllowedOrigins(`${ORIGIN},http://localhost:5173`),
     edgeStore: opts.store ?? null,
     now,
@@ -567,7 +572,7 @@ describe('GET /v1/health', () => {
       v: 1,
       ok: true,
       service: 'earthradar-aircraft-gateway',
-      version: '0.3.0',
+      version: '0.4.0',
       scope: 'isolate',
       breaker: { open: false },
       lastUpstream: null,

@@ -2,7 +2,7 @@
  * Misure locali (Node ≥ 22, V8 come workerd): dimensione del payload upstream,
  * dimensione del JSON normalizzato, tempo di JSON.parse + normalizzazione.
  *
- *   FLYITALYADSB_API_KEY=… npm run measure
+ *   EARTHRADAR_CONFIRM_REAL_QUOTA=6 FLYITALYADSB_API_KEY=… npm run measure
  *
  * Esegue UNA richiesta reale per area verso FlyItalyADSB (uso leggero,
  * intervallate di 1,5 s) e ripete il parsing in memoria per avere mediane stabili.
@@ -40,6 +40,16 @@ function kb(bytes: number): string {
 const apiKey = process.env.FLYITALYADSB_API_KEY;
 if (!apiKey) {
   console.error('Imposta FLYITALYADSB_API_KEY nell’ambiente.');
+  process.exit(1);
+}
+// Consumo REALE della quota della chiave, fuori dal budget globale di produzione:
+// mai per sbaglio, solo con conferma esplicita.
+if (process.env.EARTHRADAR_CONFIRM_REAL_QUOTA !== String(AREAS.length)) {
+  console.error(
+    `Questo script fa ${AREAS.length} richieste REALI a FlyItalyADSB (quota della chiave, ` +
+      'fuori dal budget del gateway). Per confermare: ' +
+      `EARTHRADAR_CONFIRM_REAL_QUOTA=${AREAS.length} FLYITALYADSB_API_KEY=… npm run measure`,
+  );
   process.exit(1);
 }
 

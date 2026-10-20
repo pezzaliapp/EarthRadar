@@ -9,7 +9,12 @@ import {
 import { AnonymousIds } from '../anonymize.ts';
 import { normalizeReadsbResponse } from '../normalize.ts';
 import type { Area, ProviderInfo } from '../types.ts';
-import { UpstreamError, type AircraftProvider, type ProviderFetchResult } from './types.ts';
+import {
+  UpstreamError,
+  type AircraftProvider,
+  type FetchAreaHooks,
+  type ProviderFetchResult,
+} from './types.ts';
 
 /**
  * Provider FlyItalyADSB — REST API v2, endpoint
@@ -82,11 +87,13 @@ export function createFlyItalyAdsbProvider(
   // Un registro per istanza del provider (= per isolate): token stabili fra aggiornamenti.
   const anonymousIds = opts.anonymousIds ?? new AnonymousIds({ now });
 
-  async function fetchArea(area: Area): Promise<ProviderFetchResult> {
+  async function fetchArea(area: Area, hooks?: FetchAreaHooks): Promise<ProviderFetchResult> {
     // Senza chiave FlyItalyADSB rifiuta all'edge: non sprechiamo la chiamata.
     if (!apiKey) throw new UpstreamError('not_configured', 'FlyItalyADSB API key not configured');
 
     const url = buildAreaUrl(baseUrl, area);
+    // Permesso del budget globale: se negato, nessuna richiesta parte.
+    await hooks?.beforeSend?.();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const t0 = now();

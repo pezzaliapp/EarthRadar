@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — gateway aerei: budget globale della chiave FlyItalyADSB (gateway 0.4.0)
+
+Dal 27/10/2026 la chiave FlyItalyADSB ha limiti per chiave (30 richieste/min, 300.000/mese,
+raggio ≤ 500 km). Il gateway (`workers/aircraft-gateway/`) ora chiede un permesso a un
+**Durable Object unico** (backend SQLite, incluso nel piano Workers Free) prima di ogni chiamata
+upstream:
+
+- finestre mobili: ≤ 4 in 10 s, ≤ 24 in 60 s, ≤ 9.500 in 24 h, ≤ 285.000 in 30 giorni
+  (qualunque periodo di 31 giorni ≤ 294.500, comunque si definisca il mese);
+- fail closed: Durable Object irraggiungibile, lento o in errore → nessuna chiamata al
+  provider, fotografia stale o 503 `budget_unavailable`; quota esaurita → 503
+  `upstream_budget` con `Retry-After`;
+- 429 del provider → pausa globale per tutti i data center;
+- freschezza adattiva: 30 s invariati in condizioni normali, 60/120 s solo oltre l'80%/95% di
+  una quota (il frontend si allinea già a `ttlS`);
+- raggio massimo invariato a 150 NM; nessuna modifica a mappa, globo 3D o Radar Mode.
+- rollback: `wrangler rollback` non attraversa la migrazione del Durable Object; procedura
+  documentata (arresto d'emergenza via secret, rollback fra 0.4.x, branch
+  `rollback/gateway-0.3.1-compat` con classe inerte);
+- quota reale protetta: test con rete bloccata, `npm run dev` contro un provider finto,
+  `npm run measure` solo con conferma esplicita; test `zeroCost` su `wrangler.toml`;
+- vincolo **costo zero** documentato in `CLAUDE.md`.
+
 ## [1.3.0] — 2026-09-28
 
 ### Added — CAM: webcam pubbliche LIVE + SNAP
@@ -102,15 +125,15 @@ coordinate/bottom navigation.
 ### Changed
 
 - **Home compatta su smartphone** (`src/pages/Home.tsx`): l'hero (titolo grande
-  + paragrafo intro + banner «fase 1») era alto ~200 px e spingeva la mappa
-  sotto la piega, costringendo a scorrere per raggiungere mappa e controlli. Ora
-  su mobile l'hero mostra solo il **titolo (più piccolo) con il toggle 2D/3D
-  inline**; intro e avviso «fase 1» restano visibili da `sm+` (tablet/desktop,
-  esperienza invariata). L'altezza della mappa passa a **62vh su mobile** (era
-  70vh: su iOS Safari il 70vh è calcolato sul viewport "large" ed eccedeva lo
-  spazio visibile) restando **70vh su desktop**. Risultato: su iPhone portrait
-  mappa e controlli overlay (zoom, «apri pannello layer», chip radar) sono
-  immediatamente visibili senza scorrere.
+  - paragrafo intro + banner «fase 1») era alto ~200 px e spingeva la mappa
+    sotto la piega, costringendo a scorrere per raggiungere mappa e controlli. Ora
+    su mobile l'hero mostra solo il **titolo (più piccolo) con il toggle 2D/3D
+    inline**; intro e avviso «fase 1» restano visibili da `sm+` (tablet/desktop,
+    esperienza invariata). L'altezza della mappa passa a **62vh su mobile** (era
+    70vh: su iOS Safari il 70vh è calcolato sul viewport "large" ed eccedeva lo
+    spazio visibile) restando **70vh su desktop**. Risultato: su iPhone portrait
+    mappa e controlli overlay (zoom, «apri pannello layer», chip radar) sono
+    immediatamente visibili senza scorrere.
 - Il pannello RainViewer resta **collassato di default** su smartphone (chip
   «🌧 Radar pioggia», introdotto in 1.2.3), confermato dai test.
 
@@ -169,7 +192,7 @@ zero costi.
   - uno snippet inline in `index.html` (eseguito prima del bundle) decodifica il
     path pulito prima che React Router parta — nessun reload, nessun loop;
   - logica pura testabile in `spaRedirect.ts`.
-  URL finale invariato: `https://www.alessandropezzali.it/EarthRadar/anomaly`.
+    URL finale invariato: `https://www.alessandropezzali.it/EarthRadar/anomaly`.
 
 ## [1.2.1] — 2026-08-18
 
@@ -196,9 +219,9 @@ versioni diverse. Nessuna nuova dipendenza, zero costi.
   - `ErrorBoundary` distingue i chunk obsoleti (placeholder «Aggiornamento…» +
     reload automatico) dai crash reali (UI d'errore invariata);
   - viene inoltre gestito l'evento Vite `vite:preloadError`.
-  L'aggiornamento resta automatico e non richiede all'utente di svuotare cache,
-  reinstallare la PWA o cancellare Safari. Nessuna perdita della modalità
-  offline.
+    L'aggiornamento resta automatico e non richiede all'utente di svuotare cache,
+    reinstallare la PWA o cancellare Safari. Nessuna perdita della modalità
+    offline.
 
 ## [1.2.0] — 2026-08-18
 
@@ -377,10 +400,10 @@ tutta la pipeline lint + test + build resta verde (343 test).
   silenziare i warning di deprecation di GitHub Actions su Node 20
 - **Touch target ≥ 44 × 44 px** (Apple HIG): regola `@media (pointer: coarse)`
   in `index.css` che porta le label-row del pannello layer a `min-height:
-  44px`, allarga lo slider opacità (track 32 px, thumb 22 × 22) e i
+44px`, allarga lo slider opacità (track 32 px, thumb 22 × 22) e i
   checkbox a 18 × 18 — solo su touch, desktop resta compatto
 - **Overflow orizzontale safety net**: `html, body { max-width: 100vw;
-  overflow-x: clip; }` per evitare scrolling laterale su iPhone SE
+overflow-x: clip; }` per evitare scrolling laterale su iPhone SE
   (375 px) in caso di overflow imprevisti
 
 ### Security / Operations
@@ -399,10 +422,10 @@ tutta la pipeline lint + test + build resta verde (343 test).
 ### i18n
 
 - Nuova sezione `radarMode.{intro, rangeLabel, rangeKm, centerLabel,
-  centerGps, centerMap, useMyLocation, useMapCenter, audioToggle,
-  audioOn, audioOff, showAircraft, aircraftHint, reducedMotionNotice,
-  legendQuakes/Satellites/Aircraft/Center, stats, tributeBadge,
-  disclaimer, loading, noLocation}` in IT e EN. Il placeholder
+centerGps, centerMap, useMyLocation, useMapCenter, audioToggle,
+audioOn, audioOff, showAircraft, aircraftHint, reducedMotionNotice,
+legendQuakes/Satellites/Aircraft/Center, stats, tributeBadge,
+disclaimer, loading, noLocation}` in IT e EN. Il placeholder
   precedente `radarMode.placeholder` è stato sostituito dalla feature
   reale e rimosso (test `i18n.test.ts` aggiornato di conseguenza)
 
@@ -426,6 +449,7 @@ tutta la pipeline lint + test + build resta verde (343 test).
 ### Added
 
 #### Phase 0 — Bootstrap (PR #1, #2)
+
 - Vite + React 18 + TypeScript scaffold, base path `/EarthRadar/`
 - TailwindCSS dark-first with cyan #5cf0ff / magenta #ff5cd0 accents,
   glassmorphism, mobile-first
@@ -436,12 +460,14 @@ tutta la pipeline lint + test + build resta verde (343 test).
 - DisclaimerBanner, Header, Footer, BottomNav (mobile), OnlineBadge
 
 #### Phase 1 — Map2D + USGS earthquakes (PR #2)
+
 - Leaflet 2D map with NASA GIBS base tiles
 - USGS GeoJSON real-time feed (`all_day`), severity-color markers
 - `apiCache` (idb-keyval) wrapper with TTL + offline fallback files
 - Day/night terminator overlay, solar position client-side
 
 #### Phase 2.1 — Satellites (PR #3)
+
 - CelesTrak TLE fetch with group selector (Stations, Starlink, Visual,
   GPS, Galileo, GLONASS, Iridium-NEXT, OneWeb)
 - True SGP4 propagation via `satellite.js`, no fake `INCLINATION`/
@@ -450,35 +476,41 @@ tutta la pipeline lint + test + build resta verde (343 test).
   link to CubeSat Constellation
 
 #### Phase 2.2 — Aircraft OpenSky (PR #4)
+
 - ADS-B live states with poll 30 s and rate-limit cooldown badge
 - Heading vectors and on-ground filter
 - `AircraftDetailPanel` with Flightradar24 deep link
 
 #### Phase 2.3 — Weather + RainViewer radar (PR #5)
+
 - Open-Meteo current + 8-cell directional grid
 - RainViewer precipitation tiles with playback controls
 - WMO weather code → emoji + severity color mapping
 
 #### Phase 2.4 — NASA EONET (PR #7)
+
 - Multi-geometry events (Point + Polygon + tracks for hurricanes /
   icebergs)
 - Track velocity sparkline, category filter, status `open|all`
 - `EonetDetailPanel` with NASA source link
 
 #### Phase 2.5 — FIRMS + GIBS Active Fires (PR #9)
+
 - NASA FIRMS NRT hotspots (VIIRS_SNPP, NOAA-20, MODIS) with optional
   `VITE_FIRMS_MAP_KEY`
 - GIBS Active Fires fallback overlay when no key is configured
 - `FireDetailPanel` with FRP severity, BBOX-aware fetching
 
 #### Phase 2.6 — ISS live + pass predictor (PR #8)
+
 - `wheretheiss.at` live position (poll 10 s) + 1 Hz SGP4 smoothing
 - Pass predictor with ENU geometry + sun altitude + ISS sunlit check
-  + apparent magnitude estimate
+  - apparent magnitude estimate
 - ICS calendar export (RFC 5545) for the next 5 visible passes
 - `IssPanel` with ground-track toggle and CubeSat deep link
 
 #### Phase 2.7 — GIBS overlays effective rendering (PR #10)
+
 - `gibsLayers` registry with `isRealTime` / `staticDate` flags
 - Temperature AIRS, aerosol AOD, snow MODIS, sea ice
 - Bonus fix: i18n `radar.*` namespace was being shadowed by Radar Mode
@@ -486,11 +518,13 @@ tutta la pipeline lint + test + build resta verde (343 test).
   detection
 
 #### Phase 2.8 — Lightning MVP (PR #11)
+
 - Static GIBS layer (LIS Mean Flash Rate climatology) — GLM not in
   GIBS catalog, picked LIS as semantically correct fallback
 - `LightningDetailPanel` placeholder with v1.1 Blitzortung roadmap
 
 #### Phase 3 — 3D Globe (PR #12)
+
 - `react-globe.gl` + `three` + `globe.gl` lazy chunk (523 KB gzip,
   excluded from PWA precache)
 - All data layers reused 1:1 from 2D (same hooks, same fetch cache)
@@ -499,6 +533,7 @@ tutta la pipeline lint + test + build resta verde (343 test).
 - `Globe3D-*.js` chunk excluded from precache via `globIgnores`
 
 #### Phase 3 hotfix — frame-ticker + CORS textures (PR #13)
+
 - Structural fix for CJS/UMD interop in the 3D dep chain: `frame-ticker`,
   `prop-types`, `react-is`, `simplesignal` forced into
   `optimizeDeps.include`
@@ -508,6 +543,7 @@ tutta la pipeline lint + test + build resta verde (343 test).
 - 4 sentinel-per-package regression tests + 2 file-existence tests
 
 #### Phase 4 — Polish & deploy (PR #14)
+
 - **Bidirectional deep links** (`src/lib/deepLinkBuilder.ts`):
   `eventToMeteorWatchUrl`, `mapStateToShareUrl`, `parseIncomingShareUrl`
   with strict validation (lat/lon range, zoom 1-18, layer whitelist)
@@ -517,7 +553,7 @@ tutta la pipeline lint + test + build resta verde (343 test).
   `tryNativeShare` → `copyToClipboard` (clipboard API → execCommand)
 - Reusable `<ShareButton>` integrated in Satellite, Aircraft, Weather,
   EONET, Fire, ISS panels + a global one in Home header
-- **Notifications opt-in** (`src/lib/notificationsLogic.ts` + 
+- **Notifications opt-in** (`src/lib/notificationsLogic.ts` +
   `src/hooks/useNotifications.ts`): triggers for M ≥ 5 quakes within
   1000 km and visible ISS passes within 30 min, 30-min cooldown per
   category in localStorage. Split into `useNotificationsControls`
@@ -527,7 +563,7 @@ tutta la pipeline lint + test + build resta verde (343 test).
   `prefers-reduced-motion`. Skip-link, focus-visible, reduced-motion
   CSS already present from Phase 0
 - `.github/workflows/deploy.yml` — push to `main` runs `npm ci && lint
-  && test && build` then deploys to GitHub Pages with CNAME
+&& test && build` then deploys to GitHub Pages with CNAME
 
 ### Architecture
 
@@ -553,6 +589,7 @@ tutta la pipeline lint + test + build resta verde (343 test).
 ### Tests
 
 **285+ test verdi** through Vitest (4.x):
+
 - Pure logic: `quakeFormatters`, `wmoCodes`, `geo`, `apiCache`,
   `dayNightTerminator`, `sgp4Lite`, `passPredictor`, `icsExporter`,
   `gibsLayers`, `eonetCategories`, `firmsApi`, `notificationsLogic`,
