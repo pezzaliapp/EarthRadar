@@ -3,6 +3,9 @@ import type { EdgeCacheStore } from './edgeCache.ts';
 import { createGateway, type Gateway, type WaitUntilContext } from './handler.ts';
 import { createFlyItalyAdsbProvider } from './providers/flyItalyAdsb.ts';
 
+/** Rollback 0.3.1-compat: classe inerte, mantenuta per non cambiare il ciclo di vita del Durable Object. */
+export { UpstreamBudgetObject } from './budget/durableObject.ts';
+
 /**
  * EarthRadar aircraft gateway — entry point Cloudflare Workers.
  *

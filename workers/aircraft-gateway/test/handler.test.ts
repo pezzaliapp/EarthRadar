@@ -567,7 +567,7 @@ describe('GET /v1/health', () => {
       v: 1,
       ok: true,
       service: 'earthradar-aircraft-gateway',
-      version: '0.3.0',
+      version: '0.3.1',
       scope: 'isolate',
       breaker: { open: false },
       lastUpstream: null,

@@ -1,5 +1,5 @@
 export const SERVICE_NAME = 'earthradar-aircraft-gateway';
-export const SERVICE_VERSION = '0.3.0';
+export const SERVICE_VERSION = '0.3.1';
 
 /**
  * Raggio massimo ASSOLUTO accettato dal gateway (decisione di progetto).

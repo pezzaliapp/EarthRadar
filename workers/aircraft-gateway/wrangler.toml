@@ -20,3 +20,13 @@ routes = [{ pattern = "aircraft.alessandropezzali.it", custom_domain = true }]
 # Origini autorizzate (CORS allowlist), separate da virgola.
 ALLOWED_ORIGINS = "https://www.alessandropezzali.it,https://pezzaliapp.github.io,http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
 UPSTREAM_BASE_URL = "https://api.flyitalyadsb.com/v2"
+
+# ROLLBACK 0.3.1-compat: binding e migrazione IDENTICI alla 0.4.0 (stesso tag),
+# così il deploy non cambia il ciclo di vita della classe e non cancella dati.
+[[durable_objects.bindings]]
+name = "UPSTREAM_BUDGET"
+class_name = "UpstreamBudgetObject"
+
+[[migrations]]
+tag = "v1-upstream-budget"
+new_sqlite_classes = ["UpstreamBudgetObject"]
